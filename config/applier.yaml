@@ -1,0 +1,18 @@
+settings:
+  dry_run: true                    # CRITICAL: set to false to actually submit applications
+  matches_dir: data/matches
+  applied_dir: data/applied
+  runs_dir: data/runs
+  resume_path: data/Udayan_Resume.pdf
+  headless: false                  # set to false to watch the browser while debugging
+  inter_job_delay_s: 10            # seconds to wait between applications
+  max_steps: 40                    # max browser-use agent steps per job
+
+  # Your details — used to fill standard application fields
+  first_name: Udayan
+  last_name: Atreya
+  email: udayan.atreya@gmail.com
+  phone: "6693406033"
+
+  generate_cover_letter: true
+  model: gpt-4o-mini               # LLM for answer generation and browser agent

@@ -13,7 +13,7 @@ data/matches/
 data/applied/
 
 # Resume (personal data)
-resume.pdf
+data/Udayan_Resume.pdf
 
 # Environment
 .env
