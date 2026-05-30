@@ -1,0 +1,30 @@
+settings:
+  concurrency: 10
+  request_timeout_s: 30
+  retry_attempts: 3
+  max_age_hours: 6  # only keep jobs updated in the last N hours; remove this line to fetch all
+
+companies:
+  - name: Airbnb
+    greenhouse_token: airbnb
+
+  - name: Stripe
+    greenhouse_token: stripe
+
+  - name: Figma
+    greenhouse_token: figma
+
+  - name: Notion
+    greenhouse_token: notion
+
+  - name: Anthropic
+    greenhouse_token: anthropic
+
+  - name: OpenAI
+    greenhouse_token: openai
+
+  - name: Vercel
+    greenhouse_token: vercel
+
+  - name: Linear
+    greenhouse_token: linear

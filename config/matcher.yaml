@@ -1,0 +1,9 @@
+settings:
+  threshold: 65              # min relevance_score (0-100) to shortlist a job
+  concurrency: 1             # parallel LLM calls (free tier: keep at 1)
+  model: gpt-5-nano    # model name for the chosen LLM_PROVIDER
+  request_interval_s: 13    # seconds to wait between requests (13s = ~4.6 RPM; set to 0 on paid tier)
+  max_content_chars: 8000    # truncate job description to this length before sending
+  resume_path: data/Udayan_Resume.pdf    # path to your resume (relative to project root)
+  runs_dir: data/runs        # where scraper output lives
+  matches_dir: data/matches  # where matcher output will be written

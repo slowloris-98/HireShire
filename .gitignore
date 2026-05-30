@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Pipeline output
+data/runs/
+data/matches/
+data/applied/
+
+# Resume (personal data)
+resume.pdf
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/

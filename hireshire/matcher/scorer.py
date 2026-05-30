@@ -1,0 +1,317 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import re
+from datetime import datetime, timezone
+from typing import Optional, Protocol, runtime_checkable
+
+from pydantic import BaseModel
+from tenacity import retry, retry_if_exception, stop_never
+
+from hireshire.matcher.config import MatcherSettings
+from hireshire.models.job import Job
+
+logger = logging.getLogger(__name__)
+
+SYSTEM_PROMPT = (
+    "You are an expert technical recruiter evaluating job-candidate fit. "
+    "Given a resume and a job description, return a JSON object with your assessment. "
+    "Be specific and evidence-based. Base years_experience_required on what the job explicitly states."
+)
+
+
+class ScoringSchema(BaseModel):
+    relevance_score: int
+    years_experience_required: Optional[float] = None
+    match_reasons: list[str]
+    disqualifiers: list[str]
+    recommend: bool
+
+
+class MatchResult(BaseModel):
+    job_id: str
+    board_token: str
+    title: str
+    location: str
+    absolute_url: str
+
+    relevance_score: int
+    years_experience_required: Optional[float] = None
+    match_reasons: list[str]
+    disqualifiers: list[str]
+    recommend: bool
+
+    skipped: bool = False
+    skip_reason: Optional[str] = None
+    scored_at: datetime
+    source_run_id: str
+
+
+# ---------------------------------------------------------------------------
+# LLMBackend protocol
+# ---------------------------------------------------------------------------
+
+@runtime_checkable
+class LLMBackend(Protocol):
+    async def call(self, prompt: str, system_prompt: str) -> ScoringSchema: ...
+
+
+# ---------------------------------------------------------------------------
+# Gemini backend
+# ---------------------------------------------------------------------------
+
+def _is_gemini_retryable(exc: BaseException) -> bool:
+    try:
+        from google.genai import errors as genai_errors  # type: ignore[import-untyped]
+        if isinstance(exc, genai_errors.ClientError):
+            return getattr(exc, "code", None) == 429
+        if isinstance(exc, genai_errors.ServerError):
+            return True
+    except ImportError:
+        pass
+    try:
+        from google.api_core import exceptions as gexc
+        return isinstance(exc, (gexc.ResourceExhausted, gexc.ServiceUnavailable, gexc.InternalServerError))
+    except ImportError:
+        pass
+    return False
+
+
+def _gemini_wait(retry_state) -> float:
+    """Read retryDelay from the API error; fall back to 90s."""
+    exc = retry_state.outcome.exception()
+    if exc:
+        m = re.search(r"'retryDelay':\s*'(\d+)s'", str(exc))
+        if m:
+            return float(m.group(1)) + 5
+    return 90.0
+
+
+_gemini_retry = retry(
+    retry=retry_if_exception(_is_gemini_retryable),
+    stop=stop_never,
+    wait=_gemini_wait,
+    reraise=True,
+)
+
+
+class GeminiBackend:
+    def __init__(self, settings: MatcherSettings, sem: asyncio.Semaphore) -> None:
+        from google import genai  # type: ignore[import-untyped]
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            raise EnvironmentError("GOOGLE_API_KEY environment variable is not set.")
+        self._client = genai.Client(api_key=api_key)
+        self._settings = settings
+        self._sem = sem
+
+    @_gemini_retry
+    async def call(self, prompt: str, system_prompt: str) -> ScoringSchema:
+        from google.genai import types  # type: ignore[import-untyped]
+        async with self._sem:
+            response = await self._client.aio.models.generate_content(
+                model=self._settings.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ScoringSchema.model_json_schema(),
+                    system_instruction=system_prompt,
+                ),
+            )
+            if self._settings.request_interval_s > 0:
+                await asyncio.sleep(self._settings.request_interval_s)
+        return ScoringSchema.model_validate_json(response.text)
+
+
+# ---------------------------------------------------------------------------
+# OpenAI backend
+# ---------------------------------------------------------------------------
+
+def _is_openai_retryable(exc: BaseException) -> bool:
+    try:
+        import openai
+        return isinstance(exc, (openai.RateLimitError, openai.InternalServerError, openai.APIConnectionError))
+    except ImportError:
+        return False
+
+
+def _openai_wait(retry_state) -> float:
+    exc = retry_state.outcome.exception()
+    if exc and hasattr(exc, "response") and exc.response is not None:
+        after = exc.response.headers.get("Retry-After")
+        if after:
+            return float(after) + 2
+    return 60.0
+
+
+_openai_retry = retry(
+    retry=retry_if_exception(_is_openai_retryable),
+    stop=stop_never,
+    wait=_openai_wait,
+    reraise=True,
+)
+
+
+class OpenAIBackend:
+    def __init__(self, settings: MatcherSettings, sem: asyncio.Semaphore) -> None:
+        try:
+            import openai
+        except ImportError:
+            raise ImportError("openai package required. Install with: pip install openai")
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise EnvironmentError("OPENAI_API_KEY environment variable is not set.")
+        self._client = openai.AsyncOpenAI(api_key=api_key)
+        self._settings = settings
+        self._sem = sem
+
+    @_openai_retry
+    async def call(self, prompt: str, system_prompt: str) -> ScoringSchema:
+        async with self._sem:
+            response = await self._client.beta.chat.completions.parse(
+                model=self._settings.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format=ScoringSchema,
+            )
+            if self._settings.request_interval_s > 0:
+                await asyncio.sleep(self._settings.request_interval_s)
+        return response.choices[0].message.parsed
+
+
+# ---------------------------------------------------------------------------
+# Anthropic backend
+# ---------------------------------------------------------------------------
+
+def _is_anthropic_retryable(exc: BaseException) -> bool:
+    try:
+        import anthropic
+        return isinstance(exc, (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APIConnectionError))
+    except ImportError:
+        return False
+
+
+def _anthropic_wait(retry_state) -> float:
+    exc = retry_state.outcome.exception()
+    if exc and hasattr(exc, "response") and exc.response is not None:
+        after = exc.response.headers.get("Retry-After")
+        if after:
+            return float(after) + 2
+    return 60.0
+
+
+_anthropic_retry = retry(
+    retry=retry_if_exception(_is_anthropic_retryable),
+    stop=stop_never,
+    wait=_anthropic_wait,
+    reraise=True,
+)
+
+
+class AnthropicBackend:
+    def __init__(self, settings: MatcherSettings, sem: asyncio.Semaphore) -> None:
+        try:
+            import anthropic
+        except ImportError:
+            raise ImportError("anthropic package required. Install with: pip install anthropic")
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise EnvironmentError("ANTHROPIC_API_KEY environment variable is not set.")
+        self._client = anthropic.AsyncAnthropic(api_key=api_key)
+        self._settings = settings
+        self._sem = sem
+
+    @_anthropic_retry
+    async def call(self, prompt: str, system_prompt: str) -> ScoringSchema:
+        async with self._sem:
+            response = await self._client.messages.create(
+                model=self._settings.model,
+                max_tokens=1024,
+                system=system_prompt,
+                messages=[{"role": "user", "content": prompt}],
+                tools=[{
+                    "name": "score_job",
+                    "description": "Return the structured scoring result for the job-candidate match.",
+                    "input_schema": ScoringSchema.model_json_schema(),
+                }],
+                tool_choice={"type": "tool", "name": "score_job"},
+            )
+            if self._settings.request_interval_s > 0:
+                await asyncio.sleep(self._settings.request_interval_s)
+        tool_use = next(b for b in response.content if b.type == "tool_use")
+        return ScoringSchema.model_validate(tool_use.input)
+
+
+# ---------------------------------------------------------------------------
+# Factory
+# ---------------------------------------------------------------------------
+
+_BACKENDS: dict[str, type] = {
+    "gemini": GeminiBackend,
+    "openai": OpenAIBackend,
+    "anthropic": AnthropicBackend,
+}
+
+
+def make_backend(settings: MatcherSettings, sem: asyncio.Semaphore) -> LLMBackend:
+    provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
+    cls = _BACKENDS.get(provider)
+    if cls is None:
+        raise ValueError(
+            f"Unknown LLM_PROVIDER '{provider}'. Choose from: {', '.join(_BACKENDS)}"
+        )
+    return cls(settings, sem)
+
+
+# ---------------------------------------------------------------------------
+# JobScorer
+# ---------------------------------------------------------------------------
+
+class JobScorer:
+    def __init__(self, settings: MatcherSettings, backend: LLMBackend) -> None:
+        self._settings = settings
+        self._backend = backend
+
+    async def score(self, job: Job, resume_text: str, run_id: str) -> MatchResult:
+        base = MatchResult(
+            job_id=job.job_id,
+            board_token=job.board_token,
+            title=job.title,
+            location=job.location.name,
+            absolute_url=str(job.absolute_url),
+            relevance_score=0,
+            years_experience_required=None,
+            match_reasons=[],
+            disqualifiers=[],
+            recommend=False,
+            scored_at=datetime.now(timezone.utc),
+            source_run_id=run_id,
+        )
+
+        if not job.content_text or not job.content_text.strip():
+            return base.model_copy(update={"skipped": True, "skip_reason": "no_content_text"})
+
+        prompt = (
+            f"## Candidate Resume\n{resume_text}\n\n"
+            f"## Job: {job.title} at {job.board_token}\n"
+            f"{job.content_text[:self._settings.max_content_chars]}\n\n"
+            "Score how well this candidate matches this job. Be specific and evidence-based."
+        )
+
+        try:
+            result = await self._backend.call(prompt, SYSTEM_PROMPT)
+        except Exception as exc:
+            logger.warning("LLM call failed for job %s/%s: %s", job.board_token, job.job_id, exc)
+            return base.model_copy(update={"skipped": True, "skip_reason": "api_error"})
+
+        return base.model_copy(update={
+            "relevance_score": result.relevance_score,
+            "years_experience_required": result.years_experience_required,
+            "match_reasons": result.match_reasons,
+            "disqualifiers": result.disqualifiers,
+            "recommend": result.recommend,
+        })
