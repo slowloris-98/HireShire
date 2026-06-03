@@ -1,0 +1,20 @@
+settings:
+  resume_tex_path: data/Udayan_Resume.tex   # Single resume input — used by both passes
+  projects_path: data/projects.md          # Additional projects pool (optional)
+  matches_dir: data/matches
+  runs_dir: data/runs
+  tuned_dir: data/tuned
+
+  # Shared fallback model (used when per-pass overrides below are not set)
+  model: gpt-5-nano
+
+  # Per-pass overrides — leave commented out to use LLM_PROVIDER env var + model above.
+  evaluator_provider: openai           # cheap/fast model is fine for critique
+  evaluator_model: gpt-5-nano
+  optimizer_provider: claude_code         # claude_code | anthropic | openai | gemini
+  optimizer_model: claude-sonnet-4-6     # passed as --model to claude CLI (or API model name)
+
+  max_jd_chars: 12000
+  max_tex_chars: 15000
+  request_interval_s: 5.0
+  claude_cli_timeout_s: 600

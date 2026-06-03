@@ -1,0 +1,113 @@
+\documentclass[letterpaper,10.5pt]{extarticle}
+
+\usepackage[left=0.65in,right=0.65in,top=0.6in,bottom=0.6in]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+\hypersetup{
+    colorlinks=true,
+    urlcolor=blue,
+    linkcolor=blue,
+    pdfborder={0 0 0}
+}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+
+% Section header: bold uppercase label followed by a full-width rule
+\newcommand{\resumesection}[1]{%
+    \vspace{6pt}%
+    \noindent\textbf{#1}\vspace{-5pt}%
+    \\\noindent\rule{\textwidth}{0.5pt}%
+    \vspace{1pt}%
+}
+
+\begin{document}
+
+% ─── Header ──────────────────────────────────────────────────────────────────
+\begin{center}
+    {\LARGE\textbf{Udayan Atreya}}\\[3pt]
+    {\fontsize{11}{13.2}\selectfont
+    San Jose, CA \textbar{} 669-340-6033 \textbar{}
+    \href{mailto:udayan.atreya@gmail.com}{udayan.atreya@gmail.com} \textbar{}
+    \href{https://www.linkedin.com/in/uatreya/}{LinkedIn - /uatreya} \textbar{}
+    \href{https://github.com/slowloris-98/}{Github} \textbar{}
+    \href{https://udayan-atreya.vercel.app/}{Portfolio}}
+\end{center}
+
+% ─── Education ───────────────────────────────────────────────────────────────
+\resumesection{EDUCATION}
+
+\noindent\textbf{Master of Science, Computer Science} \hfill Expected May 2026\\
+San Jose State University, San Jose, US\\
+Coursework: Retrieval Augmented Generation, LLM Prompt Engineering \& Fine-Tuning, Applied Deep Learning.
+
+\vspace{5pt}
+
+\noindent\textbf{Bachelor of Technology, Computer Science \& Engineering} \hfill May 2020\\
+Manipal University, Jaipur, India\\
+Coursework: Data Structures \& Algorithms, Relational Database Management Systems, Object-Oriented Programming.
+
+% ─── Technical Skills ────────────────────────────────────────────────────────
+\resumesection{TECHNICAL SKILLS}
+
+\noindent\textbf{Frameworks:} LangChain, RAG, HuggingFace, PEFT, TensorFlow, PyTorch, FastAPI, RAGAS, Git\\
+\noindent\textbf{LLMs \& AI Tools:} Claude, GPT-4o, Gemini, Llama-3, Mistral-7B, Ollama, DeepSeek, Groq, Vapi\\
+\noindent\textbf{Cloud \& Database:} AWS (Lambda, S3, API Gateway), CI/CD, MongoDB, DynamoDB, Pinecone, ChromaDB\\
+\noindent\textbf{Languages:} Python, Java, C\#, SQL
+
+% ─── Project Experience ───────────────────────────────────────────────────────
+\resumesection{PROJECT EXPERIENCE}
+
+\noindent\textbf{Evaluator-Optimizer RAG} \textit{(LangChain, GPT-4o, ChromaDB, RAGAS, Whisper)} \hfill \href{https://github.com/slowloris-98/Evaluator-Optimizer-RAG}{[GitHub]}\\
+Aug 2025 -- Mar 2026
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Architected a \textbf{multi-step agentic RAG framework} with Evaluator-Optimizer feedback loop — designed \textbf{prompt templates}, \textbf{system instructions}, and \textbf{guardrails} for hallucination mitigation, reducing hallucination by \textbf{25\%} and improving answer accuracy by \textbf{18\%} over baseline.
+    \item Conducted hands-on ablation study on \textbf{embeddings}: benchmarked MiniLM vs.\ BGE-base embedding models stored in ChromaDB, demonstrating \textbf{98\% performance parity} at \textbf{50\% lower storage cost}; tuned chunking strategies and embedding model selection for optimal retrieval quality.
+    \item Built an \textbf{automated LLM evaluation and regression test suite} using RAGAS and Llama-3-70b (LLM-as-a-judge) over 500+ STEM QA pairs, quantifying Faithfulness, Context Precision, Context Recall, Noise Sensitivity, and Semantic Similarity.
+    \item Implemented \textbf{document retrieval strategies} — Dynamic Chunking, MMR re-ranking, and hybrid semantic search — reducing context redundancy by \textbf{40\%} while maintaining \textbf{90\%+ semantic coverage}; optimized token usage and inference latency end-to-end.
+\end{itemize}
+
+\vspace{4pt}
+
+\noindent\textbf{Agentic BMC Observability} \textit{(LangChain, Gemini 1.5, FastAPI, MongoDB, AWS S3)} \hfill \href{https://github.com/slowloris-98/Agentic-Oberservability-BMC}{[GitHub]}\\
+Jun 2025 -- Jul 2025
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Designed a \textbf{multi-agent, multi-step workflow} with a semantic router orchestrating specialized sub-agents for query classification, telemetry analysis, and root cause diagnosis — achieving \textbf{95\% query classification accuracy} and reducing manual triage time by \textbf{30\%}.
+    \item Implemented \textbf{document retrieval strategies} via a hybrid engine (MongoDB hot store + AWS S3 archival) with intelligent routing and ranking, cutting retrieval latency by \textbf{75\%} (2 min $\rightarrow$ 30 s) for enterprise-scale operational data.
+    \item Engineered \textbf{system instructions} and strict \textbf{policy guardrails} with role-based access controls for agentic hardware interventions on Baseboard Management Controllers; enforced \textbf{human-in-the-loop validation} preventing \textbf{100\% of unauthorized state changes}.
+\end{itemize}
+
+\vspace{4pt}
+
+\noindent\textbf{Mistral-7B QLoRA Benchmark} \textit{(PyTorch, HuggingFace, PEFT, bitsandbytes, TRL)} \hfill \href{https://github.com/slowloris-98/NSP_QLoRa}{[GitHub]}\\
+2025
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Engineered structured \textbf{prompt templates} and a label-extraction parsing pipeline to elicit discrete NLI class predictions from Mistral-7B; fine-tuned with QLoRA (rank=16, $<$0.2\% of 7.2B parameters), achieving \textbf{90.2\% accuracy / F1=0.90} on GLUE MNLI — surpassing a RoBERTa-large-mnli discriminative baseline.
+    \item Applied 4-bit NF4 quantization (bitsandbytes) and hands-on \textbf{embedding layer} optimization, reducing GPU memory from $\sim$28 GB to $\sim$3.5 GB (\textbf{87\% reduction}), enabling full fine-tuning on a single A100; benchmarked QLoRA and DoRA adapter variants with systematic hyperparameter sweeps.
+    \item Developed automated \textbf{LLM regression test scripts} (\texttt{evaluate\_roBERTa.py}, \texttt{evaluate\_baseline\_llm.py}, \texttt{evaluate\_finetuned\_llm.py}) for systematic benchmarking of four model variants on Entailment, Neutral, and Contradiction classes, producing reproducible timestamped evaluation reports.
+\end{itemize}
+
+% ─── Work Experience ──────────────────────────────────────────────────────────
+\resumesection{WORK EXPERIENCE}
+
+\noindent\textbf{Software Engineer}, Accenture, Bengaluru, India \hfill Dec 2021 -- Jul 2024\\
+\textbf{Associate Software Engineer}, Accenture, Bengaluru, India \hfill Nov 2020 -- Nov 2021
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Delivered a \textbf{ChatOps platform} routing natural language queries through \textbf{multi-step automation workflows} via serverless microservices (AWS Lambda, API Gateway), integrating tools and internal APIs to reduce operational overhead by \textbf{40\%} (\textasciitilde5 min to \textasciitilde1 min).
+    \item Architected a user notification system with microservices on \textbf{AWS (API Gateway, Lambda, DynamoDB)} delivering remediation stage notifications, resulting in a \textbf{20\% increase in DAU} post-launch.
+    \item Optimized cloud storage by redesigning \textbf{DynamoDB} access patterns (schema, pk, sk) and CRUD microservices, \textbf{reducing retrieval latency by 37\%} for resilient, high-performing workloads.
+    \item Delivered a \textbf{code vulnerability remediation} solution using serverless architecture (AWS Lambda, S3, EventBridge) and Azure DevOps CI/CD, safeguarding \textbf{400+ applications}; designed single-touch server patching resolving ServiceNow alerts and \textbf{reducing MTTR by 80\%}.
+\end{itemize}
+
+\end{document}

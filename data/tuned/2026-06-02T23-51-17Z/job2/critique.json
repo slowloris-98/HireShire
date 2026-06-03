@@ -1,0 +1,51 @@
+{
+  "job_id": "WebDev-Remote-AI-Contractor",
+  "shortcomings": [
+    "No explicit HTML, CSS, or JavaScript mentioned anywhere in the resume (frontend core skills missing).",
+    "No frontend framework experience listed (e.g., React, Angular, Vue) or any evidence of building user-facing websites or UI components.",
+    "No clear examples of responsive design, accessibility (a11y), or design-system work, which are often expected for a web developer role with designers.",
+    "Lack of evidence for developing client-facing web experiences or collaborating with UX/UI designers on visual/interaction design.",
+    "No explicit evidence of delivering web applications to production with, e.g., UI\u2013backend data exchange, testing, or maintainable front-end code practices.",
+    "Remote-work or contractor-friendly experience is not explicitly stated (location is listed as India/BNG, but role is remote).",
+    "Some bullets emphasize AI/ML backend systems and cloud/serverless work; not aligned with a typical web developer portfolio focused on frontend/UI or web performance.",
+    "One link/name typo in project title (Oberservability) could raise concerns about attention to detail.",
+    "Gaps in evidence for writing clean, well-documented frontend code and maintaining documentation specific to a web project.",
+    "No evidence of end-to-end web project delivery (frontend + backend integration) with user-centric metrics or UX outcomes."
+  ],
+  "missing_keywords": [
+    "HTML",
+    "CSS",
+    "JavaScript",
+    "Frontend",
+    "React",
+    "Angular",
+    "Vue",
+    "Responsive design",
+    "UI/UX collaboration",
+    "Design collaboration with designers",
+    "Accessibility (a11y)",
+    "Client-facing web development",
+    "RESTful API integration (frontend consumption)",
+    "Frontend testing (unit/integration/e2e)",
+    "UI performance optimization",
+    "Documentation for frontend components",
+    "UI/UX standards",
+    "Design systems (e.g., Figma specs, component libraries)",
+    "Web deployment/hosting (frontend)"
+  ],
+  "experience_gaps": [
+    "No demonstrated frontend/web UI development experience; all shown work centers on backend APIs, ML pipelines, and cloud/infrastructure.",
+    "Absence of frontend framework usage or user-facing website projects; job requires building responsive, user-friendly websites.",
+    "Limited evidence of collaboration with design teams on visual/UX deliverables; resume only asserts generic cross-functional collaboration in some bullets.",
+    "No client-facing or contractor-oriented project history explicitly showing remote collaboration, time-zone coordination, or self-directed frontend work.",
+    "No mention of end-to-end web project lifecycle (requirements, design, implementation, testing, deployment) from a frontend perspective."
+  ],
+  "weak_sections": [
+    "Projects section is heavily AI/ML-centric with little to no frontend/web development focus; this skews the narrative away from the job's core needs.",
+    "Education section lacks relevance to the role; graduate coursework is AI/ML-heavy and may not reassure frontend capabilities.",
+    "Technical Skills list is strong on AI/ML, backend, and cloud; it omits essential frontend technologies, frameworks, and UI/UX tools that recruiters will expect for a web developer role.",
+    "Work Experience bullets emphasize backend/cloud outcomes with little mention of frontend deliverables or UI-focused impact.",
+    "Spelling/typo in a project link name (Oberservability) may reflect on attention to detail."
+  ],
+  "overall_assessment": "The candidate demonstrates strong backend, cloud, and AI system integration capabilities with measurable impact. However, the resume lacks explicit front-end web development experience and evidence of HTML/CSS/JavaScript proficiency, frontend frameworks, responsive UI design, and design-collaboration outcomes. For this Web Developer (Remote) contractor role, the resume would need to clearly show end-to-end web project delivery, frontend skill demonstrations (HTML/CSS/JS and a framework), and concrete examples of working with designers to produce user-facing websites. Without reinforcing frontend and UI-focused evidence, many recruiters would likely pass in favor of candidates with proven frontend web development track records."
+}

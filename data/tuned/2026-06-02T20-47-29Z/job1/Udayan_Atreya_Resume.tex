@@ -1,0 +1,104 @@
+\documentclass[letterpaper,10.5pt]{extarticle}
+
+\usepackage[left=0.65in,right=0.65in,top=0.6in,bottom=0.6in]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+\hypersetup{
+    colorlinks=true,
+    urlcolor=blue,
+    linkcolor=blue,
+    pdfborder={0 0 0}
+}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+
+% Section header: bold uppercase label followed by a full-width rule
+\newcommand{\resumesection}[1]{%
+    \vspace{6pt}%
+    \noindent\textbf{#1}\vspace{-5pt}%
+    \\\noindent\rule{\textwidth}{0.5pt}%
+    \vspace{1pt}%
+}
+
+\begin{document}
+
+% ─── Header ──────────────────────────────────────────────────────────────────
+\begin{center}
+    {\LARGE\textbf{Udayan Atreya}}\\[3pt]
+    {\fontsize{11}{13.2}\selectfont
+    San Jose, CA \textbar{} 669-340-6033 \textbar{}
+    \href{mailto:udayan.atreya@gmail.com}{udayan.atreya@gmail.com} \textbar{}
+    \href{https://www.linkedin.com/in/uatreya/}{LinkedIn - /uatreya} \textbar{}
+    \href{https://github.com/slowloris-98/}{Github} \textbar{}
+    \href{https://udayan-atreya.vercel.app/}{Portfolio}}
+\end{center}
+
+% ─── Education ───────────────────────────────────────────────────────────────
+\resumesection{EDUCATION}
+
+\noindent\textbf{Master of Science, Computer Science} \hfill May 2026\\
+San Jose State University, San Jose, US\\
+Coursework: Retrieval Augmented Generation, Applied Deep Learning (multimodal models, generative AI), Biometric Security with AI.
+
+\vspace{4pt}
+
+\noindent\textbf{Bachelor of Technology, Computer Science \& Engineering} \hfill May 2020\\
+Manipal University, Jaipur, India\\
+Coursework: Data Structures and Algorithms, Relational Database Management Systems, Object-Oriented Programming.
+
+% ─── Technical Skills ────────────────────────────────────────────────────────
+\resumesection{TECHNICAL SKILLS}
+
+\noindent\textbf{AI/ML Frameworks:} LangChain, HuggingFace, TensorFlow, PyTorch, RAGAS, RAG, LLM Agents (reasoning, planning, tool usage)\\
+\noindent\textbf{LLMs \& Generative AI:} GPT-4o, Gemini, Claude, Llama, DeepSeek, Whisper (audio/speech), Eleven Labs (TTS), Vapi\\
+\noindent\textbf{Cloud \& Databases:} AWS (S3, Lambda, API Gateway), CI/CD, MongoDB, DynamoDB, Pinecone, ChromaDB\\
+\noindent\textbf{Languages \& Tools:} Python, Java, C\#, SQL, FastAPI, .NET, Git
+
+% ─── Project Experience ───────────────────────────────────────────────────────
+\resumesection{PROJECT EXPERIENCE}
+
+\noindent\textbf{Multimodal Evaluator-Optimizer RAG System}
+\textit{(LangChain, GPT-4o, Gemini 1.5 Pro, Llama-3, ChromaDB, Whisper)} \hfill \href{https://github.com/slowloris-98/Evaluator-Optimizer-RAG}{[GitHub Link]} \\
+Aug 2025 -- Mar 2026
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Architected a \textbf{multimodal AI agent} framework with Evaluator-Optimizer feedback loop targeting \textbf{Language-Based Video Reasoning (LBVR)}, integrating audio (Whisper), text, and video modalities; \textbf{reduced hallucination by 25\%} and \textbf{improved answer accuracy by 18\%}.
+    \item Designed \textbf{multi-agent collaboration} pipeline with reasoning and planning modules: a Retriever agent, Evaluator agent (LLM-as-judge via Llama-3-70b), and Optimizer agent iterating on 500+ multimodal STEM QA pairs to improve response groundedness.
+    \item Conducted \textbf{ablation study} on embedding architectures demonstrating lightweight models (MiniLM) with agentic feedback achieve \textbf{98\% performance parity} vs.\ SOTA (BGE-base) while \textbf{cutting storage costs by 50\%}.
+    \item Optimized latency-accuracy trade-off via Dynamic Chunking and MMR search, reducing \textbf{context redundancy by 40\%} while maintaining \textbf{90\%+ semantic coverage} across audio-transcribed and text corpora.
+\end{itemize}
+
+\vspace{3pt}
+
+\noindent\textbf{Agentic AI Observability Platform}
+\textit{(LangChain, Gemini 1.5, FastAPI, MongoDB, AWS S3)} \hfill \href{https://github.com/slowloris-98/Agentic-Oberservability-BMC}{[GitHub Link]} \\
+Jun 2025 -- Jul 2025
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Deployed a \textbf{production-grade agentic AI system} with semantic router and tool-usage layer, achieving \textbf{95\% query classification accuracy} and \textbf{reducing manual triage time by 30\%} via real-time Prometheus/Grafana telemetry.
+    \item Implemented \textbf{multi-agent reasoning and planning} with tool-calling agents orchestrating hardware interventions; enforced human-in-the-loop validation preventing \textbf{100\% of unauthorized state changes} on Baseboard Management Controllers.
+    \item Built hybrid retrieval engine (MongoDB, AWS S3) synthesizing hot and archived data, \textbf{cutting retrieval latency by 75\%} (2m to 30s) to support scalable, production-ready AI agent workflows.
+\end{itemize}
+
+% ─── Work Experience ──────────────────────────────────────────────────────────
+\resumesection{WORK EXPERIENCE}
+
+\noindent\textbf{Software Engineer}, Accenture, Bengaluru, India \hfill Dec 2021 -- Jul 2024\\
+\textbf{Associate Software Engineer}, Accenture, Bengaluru, India \hfill Nov 2020 -- Nov 2021
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Developed an \textbf{analytics-driven recommendation engine} integrating NLP-based intent routing to direct natural language queries to automation workflows (\textbf{ChatOps platform}), \textbf{reducing overhead by 40\%} (5m to 1m); served as an early-stage AI agent prototype for tool discovery across 100+ assets.
+    \item Architected user notification microservices using \textbf{AWS (API Gateway, Lambda, DynamoDB)}, resulting in \textbf{20\% increase in DAU}; redesigned DynamoDB access patterns \textbf{reducing retrieval latency by 37\%}.
+    \item Delivered a \textbf{scalable, production-grade} code vulnerability remediation system via serverless microservices (AWS Lambda, S3, EventBridge, Azure DevOps), safeguarding \textbf{400+ applications} across organizations.
+    \item Designed single-touch server patching solution using serverless architecture (AWS, Azure DevOps), \textbf{reducing MTTR by 80\%} and demonstrating production deployment of automated AI-assisted workflows.
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,115 @@
+\documentclass[letterpaper,10.5pt]{extarticle}
+
+\usepackage[left=0.65in,right=0.65in,top=0.6in,bottom=0.6in]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+\hypersetup{
+    colorlinks=true,
+    urlcolor=blue,
+    linkcolor=blue,
+    pdfborder={0 0 0}
+}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+
+% Section header: bold uppercase label followed by a full-width rule
+\newcommand{\resumesection}[1]{%
+    \vspace{6pt}%
+    \noindent\textbf{#1}\vspace{-5pt}%
+    \\\noindent\rule{\textwidth}{0.5pt}%
+    \vspace{1pt}%
+}
+
+\begin{document}
+
+% ─── Header ──────────────────────────────────────────────────────────────────
+\begin{center}
+    {\LARGE\textbf{Udayan Atreya}}\\[3pt]
+    {\fontsize{11}{13.2}\selectfont
+    San Jose, CA \textbar{} 669-340-6033 \textbar{}
+    \href{mailto:udayan.atreya@gmail.com}{udayan.atreya@gmail.com} \textbar{}
+    \href{https://www.linkedin.com/in/uatreya/}{LinkedIn - /uatreya} \textbar{}
+    \href{https://github.com/slowloris-98/}{Github} \textbar{}
+    \href{https://udayan-atreya.vercel.app/}{Portfolio}}
+\end{center}
+
+% ─── Technical Skills ────────────────────────────────────────────────────────
+\resumesection{TECHNICAL SKILLS}
+
+\noindent\textbf{Languages:} HTML, CSS, JavaScript, Python, Java, C\#, SQL\\
+\noindent\textbf{Web \& Frameworks:} .NET Core, Spring MVC, FastAPI, REST API, JWT Authentication, Git, LangChain\\
+\noindent\textbf{Cloud \& Database:} AWS (API Gateway, Lambda, S3, EventBridge), Vercel, MongoDB, DynamoDB, Pinecone\\
+\noindent\textbf{AI \& ML:} HuggingFace, TensorFlow, PyTorch, Claude, GPT, Gemini, RAG, RAGAS, ChromaDB
+
+% ─── Work Experience ──────────────────────────────────────────────────────────
+\resumesection{WORK EXPERIENCE}
+
+\noindent\textbf{Software Engineer}, Accenture, Bengaluru, India \hfill Dec 2021 -- Jul 2024\\
+\textbf{Associate Software Engineer}, Accenture, Bengaluru, India \hfill Nov 2020 -- Nov 2021
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Architected \textbf{AWS (API Gateway, Lambda, DynamoDB)} notification microservices delivering real-time remediation alerts via REST integrations, achieving a \textbf{20\% increase in DAU} post-launch.
+    \item Optimized \textbf{DynamoDB} access patterns and CRUD microservices, reducing \textbf{API retrieval latency by 37\%} under high-throughput workloads.
+    \item Delivered a \textbf{ChatOps platform} routing natural language queries to serverless REST workflows, \textbf{reducing overhead by 40\%} (\textasciitilde5m to \textasciitilde1m) across cross-functional teams.
+    \item Built a \textbf{serverless REST API} (Lambda, S3, EventBridge) for vulnerability remediation, safeguarding \textbf{400+ enterprise apps} and cutting MTTR by 80\%.
+\end{itemize}
+
+\vspace{3pt}
+
+\noindent\textbf{Software Intern}, Motherson Technologies, India \hfill Dec 2019 -- Apr 2020
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Built a \textbf{Java Spring MVC dashboard} integrating PostgreSQL to process \textbf{200,000+ tax receipts}, with interactive data visualization modules that \textbf{accelerated audit resolution by 14\%}.
+\end{itemize}
+
+% ─── Project Experience ───────────────────────────────────────────────────────
+\resumesection{PROJECT EXPERIENCE}
+
+\noindent\textbf{WeatherAPI REST Service} \textit{(C\#, .NET Core, MongoDB, JWT)} \hfill \href{https://github.com/slowloris-98/WeatherAPI}{[GitHub Link]}
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Built a production-style \textbf{RESTful .NET Core Web API} with dual-mode weather lookup (city and IP-geolocation) for clean frontend and mobile client integration.
+    \item Implemented \textbf{JWT authentication} (registration, login, token issuance and validation) for stateless, scalable security following REST best practices.
+\end{itemize}
+
+\vspace{2pt}
+
+\noindent\textbf{Agentic BMC Observability} \textit{(FastAPI, LangChain, Gemini 1.5, MongoDB, AWS S3)} \hfill \href{https://github.com/slowloris-98/Agentic-Oberservability-BMC}{[GitHub Link]}\\
+Jun 2025 -- Jul 2025
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Deployed a \textbf{FastAPI REST backend} with semantic query routing and Prometheus/Grafana dashboards, achieving \textbf{95\% query accuracy} and reducing manual triage time by 30\%.
+    \item Designed a \textbf{hybrid MongoDB + AWS S3} retrieval engine synthesizing hot and archived data, cutting \textbf{API response latency by 75\%} (2m to 30s) for downstream consumers.
+    \item Enforced RBAC and human-in-the-loop validations on API-driven hardware interventions, \textbf{preventing 100\% of unauthorized state changes}.
+\end{itemize}
+
+\vspace{2pt}
+
+\noindent\textbf{BobTheAgent} \textit{(Python, CrewAI, HTML, Computer Vision)} \hfill \href{https://github.com/slowloris-98/BobTheAgent}{[GitHub Link]}
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Orchestrated a \textbf{multi-agent network} (Client, Master, Bidding, Scheduling, Vision, Payment agents) via CrewAI with automated milestone-based payments on Masumi Cardano blockchain on verified progress.
+\end{itemize}
+
+% ─── Education ───────────────────────────────────────────────────────────────
+\resumesection{EDUCATION}
+
+\noindent\textbf{Master of Science, Computer Science} \hfill May 2026\\
+San Jose State University, San Jose, US\\
+Coursework: Applied Deep Learning, Retrieval Augmented Generation.
+
+\vspace{3pt}
+
+\noindent\textbf{Bachelor of Technology, Computer Science \& Engineering} \hfill May 2020\\
+Manipal University, Jaipur, India\\
+Coursework: Data Structures \& Algorithms, Database Management Systems.
+
+\end{document}

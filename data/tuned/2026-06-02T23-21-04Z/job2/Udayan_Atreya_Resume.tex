@@ -1,0 +1,104 @@
+\documentclass[letterpaper,10.5pt]{extarticle}
+
+\usepackage[left=0.65in,right=0.65in,top=0.6in,bottom=0.6in]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+\hypersetup{
+    colorlinks=true,
+    urlcolor=blue,
+    linkcolor=blue,
+    pdfborder={0 0 0}
+}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+
+% Section header: bold uppercase label followed by a full-width rule
+\newcommand{\resumesection}[1]{%
+    \vspace{6pt}%
+    \noindent\textbf{#1}\vspace{-5pt}%
+    \\\noindent\rule{\textwidth}{0.5pt}%
+    \vspace{1pt}%
+}
+
+\begin{document}
+
+% ─── Header ──────────────────────────────────────────────────────────────────
+\begin{center}
+    {\LARGE\textbf{Udayan Atreya}}\\[3pt]
+    {\fontsize{11}{13.2}\selectfont
+    San Jose, CA \textbar{} 669-340-6033 \textbar{}
+    \href{mailto:udayan.atreya@gmail.com}{udayan.atreya@gmail.com} \textbar{}
+    \href{https://www.linkedin.com/in/uatreya/}{LinkedIn - /uatreya} \textbar{}
+    \href{https://github.com/slowloris-98/}{Github} \textbar{}
+    \href{https://udayan-atreya.vercel.app/}{Portfolio}}
+\end{center}
+
+% ─── Education ───────────────────────────────────────────────────────────────
+\resumesection{EDUCATION}
+
+\noindent\textbf{Master of Science, Computer Science} \hfill May 2026\\
+San Jose State University, San Jose, US\\
+Coursework: Applied Deep Learning, Retrieval Augmented Generation (RAG), Biometric Security with AI.
+
+\vspace{5pt}
+
+\noindent\textbf{Bachelor of Technology, Computer Science \& Engineering} \hfill May 2020\\
+Manipal University, Jaipur, India\\
+Coursework: Data Structures \& Algorithms, Database Management Systems, Object-Oriented Programming.
+
+% ─── Technical Skills ────────────────────────────────────────────────────────
+\resumesection{TECHNICAL SKILLS}
+
+\noindent\textbf{Web \& Backend:} FastAPI, REST APIs, .NET, AWS API Gateway, Lambda, Microservices, Git\\
+\noindent\textbf{Cloud \& Database:} AWS, S3, CI/CD, MongoDB, DynamoDB, ChromaDB, Pinecone, Azure DevOps\\
+\noindent\textbf{AI \& ML:} LangChain, RAG, HuggingFace, TensorFlow, PyTorch, RAGAS, GPT, Gemini, Claude\\
+\noindent\textbf{Languages:} Python, Java, C\#, SQL
+
+% ─── Project Experience ───────────────────────────────────────────────────────
+\resumesection{PROJECT EXPERIENCE}
+
+\noindent\textbf{Agentic BMC Observability Platform}
+\textit{(FastAPI, LangChain, Gemini 1.5, MongoDB, AWS S3)} \hfill \href{https://github.com/slowloris-98/Agentic-Oberservability-BMC}{[GitHub Link]} \\
+Jun 2025 -- Jul 2025
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Built a \textbf{FastAPI web platform} with real-time Grafana dashboards and well-documented REST endpoints, achieving \textbf{95\% query classification accuracy} and \textbf{reducing manual triage time by 30\%}.
+    \item Designed and integrated \textbf{RESTful backend APIs} connecting a hybrid MongoDB/S3 data layer to platform consumers, cutting \textbf{data retrieval latency by 75\%} (from 2 minutes to 30 seconds).
+    \item Implemented role-based access controls and human-in-the-loop validations across API endpoints, \textbf{preventing 100\% of unauthorized state changes} in production.
+\end{itemize}
+
+\vspace{4pt}
+
+\noindent\textbf{Evaluator-Optimizer RAG}
+\textit{(LangChain, GPT-4o, ChromaDB, RAGAS, Whisper)} \hfill \href{https://github.com/slowloris-98/Evaluator-Optimizer-RAG}{[GitHub Link]} \\
+Aug 2025 -- Mar 2026
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Architected an agentic RAG framework with \textbf{clean, modular, well-documented code}, reducing hallucination by \textbf{25\%} and improving answer accuracy by \textbf{18\%} over baselines.
+    \item Engineered an evaluation suite using RAGAS and LLM-as-a-judge on 500+ STEM QA pairs, quantifying Faithfulness, Answer Relevancy, Context Precision, and Semantic Similarity.
+    \item Optimized latency-accuracy trade-off via Dynamic Chunking and MMR search, reducing \textbf{context redundancy by 40\%} while maintaining over \textbf{90\% semantic coverage}.
+\end{itemize}
+
+% ─── Work Experience ──────────────────────────────────────────────────────────
+\resumesection{WORK EXPERIENCE}
+
+\noindent\textbf{Software Engineer}, Accenture, Bengaluru, India \hfill Dec 2021 -- Jul 2024\\
+\textbf{Associate Software Engineer}, Accenture, Bengaluru, India \hfill Nov 2020 -- Nov 2021
+
+\begin{itemize}[leftmargin=12pt, topsep=1pt, itemsep=0pt, parsep=0pt]
+    \item Architected a \textbf{user-facing notification service} integrating \textbf{AWS API Gateway and Lambda} with client applications via REST, resulting in a \textbf{20\% increase in DAU} post-launch.
+    \item Delivered a \textbf{web-based ChatOps platform} connecting a natural language frontend to backend serverless automation workflows through \textbf{REST API integration}, \textbf{reducing overhead by 40\%}.
+    \item Optimized \textbf{DynamoDB} schema and CRUD REST microservices for \textbf{high-performance data exchange}, \textbf{reducing API response latency by 37\%} and ensuring scalable, resilient backends.
+    \item Built a code vulnerability remediation solution using serverless microservices (Lambda, S3, EventBridge) and Azure DevOps CI/CD pipelines, safeguarding \textbf{400+ applications} with clean, maintainable code.
+    \item Designed a server patching solution integrating ServiceNow alerts with serverless automation, \textbf{reducing MTTR by 80\%}; collaborated with \textbf{cross-functional global teams} throughout delivery.
+\end{itemize}
+
+\end{document}

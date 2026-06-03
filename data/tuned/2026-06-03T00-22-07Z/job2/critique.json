@@ -1,0 +1,41 @@
+{
+  "job_id": "manual_remote_software_developer",
+  "shortcomings": [
+    "No explicit frontend web development experience or evidence of HTML/CSS/JavaScript proficiency (the resume lists backend and ML focus but does not mention HTML, CSS, or JS).",
+    "Frontend framework experience is absent (no React, Angular, Vue, or TypeScript listed) despite the role emphasizing building responsive, user-friendly websites.",
+    "Lack of explicit demonstration of building user-facing UI or collaborating with design teams on UI/UX; the resume shows cross-functional collaboration but no UI/UX-focused outcomes or design-led development.",
+    "No clear examples of integrating backend APIs with a frontend or handling data exchange in a web client context; most API references are to serverless/background services (API Gateway, Lambda) rather than frontend-backend integration.",
+    "Frontend performance, accessibility, responsive design, and cross-browser compatibility concepts are not mentioned, yet they are key for the role.",
+    "Absence of explicit documentation or maintainable frontend code practices (e.g., frontend testing, code reviews, documentation for UI components) in the resume; the emphasis is on ML pipelines and backend infrastructure.",
+    "No explicit remote/contractor-web-development experience highlighted; current roles are backend/ML-centric and may not align with typical Web Developer contract expectations.",
+    "Missing a targeted summary/objective and a dedicated section highlighting web development outcomes or portfolio items relevant to the job description."
+  ],
+  "missing_keywords": [
+    "HTML",
+    "CSS",
+    "JavaScript",
+    "React/Angular/Vue (frontend frameworks)",
+    "TypeScript",
+    "Front-end responsive design",
+    "UX/UI collaboration",
+    "Accessibility (a11y)",
+    "REST/HTTP API integration from the frontend",
+    "Frontend testing (e.g., Jest, Cypress)",
+    "UI/UX performance optimization",
+    "Cross-browser compatibility",
+    "Portfolio/live frontend demos",
+    "Remote/contractor web development experience"
+  ],
+  "experience_gaps": [
+    "No demonstrated frontend development work (HTML/CSS/JS) or frontend frameworks; resume shows backend/API and ML work but not frontend deliverables.",
+    "No evidence of building or shipping user-facing websites or dashboards, only backend services and ML platforms.",
+    "No explicit mention of collaborating with design teams on UI/UX or producing design-led front-end outcomes; mentions of \"cross-functional teams\" but not UI design collaboration.",
+    "Front-end related performance, accessibility, and responsive design metrics are missing; the candidate lacks frontend-focused impact measurements (e.g., page load times, accessibility conformance, responsive behavior)."
+  ],
+  "weak_sections": [
+    "TECHNICAL SKILLS emphasize ML frameworks (LangChain, RAG, HuggingFace, TensorFlow, PyTorch) and backend tools; no HTML/CSS/JS or frontend frameworks listed.",
+    "PROJECT EXPERIENCE and WORK EXPERIENCE sections focus on AI, ML evaluation, and backend cloud architectures (AWS Lambda, API Gateway, DynamoDB) with little to no frontend/web UI context.",
+    "Education and coursework are ML/data-centric; lacks a clear, frontend-relevant narrative or examples that would reassure a client seeking Web Developer capabilities."
+  ],
+  "overall_assessment": "The candidate is strong in backend engineering and AI/ML systems with solid project-based impact metrics. However, the resume does not demonstrate core Web Developer competencies needed for this remote frontend/Full-Stack role: explicit HTML/CSS/JavaScript proficiency, frontend frameworks, UI/UX collaboration, frontend API integration, and frontend-quality practices. To improve fit for this job, the candidate should add concrete frontend experience, highlight any web UI or dashboard work, include frontend-related keywords, and provide examples or a portfolio link showcasing responsive, user-focused web interfaces."
+}

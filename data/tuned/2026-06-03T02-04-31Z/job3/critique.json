@@ -1,0 +1,37 @@
+{
+  "job_id": "101751",
+  "shortcomings": [
+    "Missing explicit mention of prompt templates, system instructions, and guardrails\u2014the job emphasizes designing prompts and guardrails, but the resume only notes general policy checks and human-in-the-loop validation in one project.",
+    "No explicit reference to automated regression tests or a formal LLM evaluation framework beyond the RAG evaluation suite, which could be seen as insufficient for enterprise-grade QA.",
+    "Lacks a clear, explicit description of multi-step workflows and multi-agent architectures; projects hint at agentic systems but do not clearly articulate multi-step or multi-agent flow design.",
+    "Retrieval strategies are not fully detailed; there is a hybrid retrieval engine example (MongoDB, S3) but little on retrieval strategies, document/document retrieval pipelines, or ranking/selection methods.",
+    "Embeddings experience is not explicitly demonstrated; the resume mentions embedding architectures in an ablation study but does not show hands-on usage of embeddings or embedding tooling.",
+    "ATS/parse risk: the resume is in LaTeX source, which many ATS systems cannot parse reliably; lack of a plain-text or ATS-friendly version could reduce initial screening success.",
+    "Location/relocation signal is weak: current location is listed as San Jose, CA; job location is Santa Clara, CA; while nearby, there is no explicit note about willingness to relocate or remote/hybrid work.",
+    "Minor quality/control issues: a spelling error in a GitHub link (Oberservability) and inconsistent capitalization/typo risk in project titles; could reflect attention to detail.",
+    "Education timeline: MSc is listed as May 2026, which may require explicit note of expected graduation to avoid misinterpretation if recruiters screen for availability.",
+    "Summary/objective section is missing; no concise value proposition at the top to frame fit for GenAI Engineer role."
+  ],
+  "missing_keywords": [
+    "prompt templates",
+    "system instructions",
+    "guardrails",
+    "regression tests",
+    "multi-step workflows",
+    "multi-agent workflows",
+    "document retrieval strategies",
+    "embeddings (hands-on usage)"
+  ],
+  "experience_gaps": [
+    "No clearly described multi-step and multi-agent workflow architecture (beyond hints of 'agentic' systems in projects).",
+    "No explicit mention of automated LLM evaluation/regression tests beyond a RAG evaluation suite.",
+    "No explicit discussion of prompt engineering techniques (beyond general project claims).",
+    "Limited explicit demonstration of embeddings usage or tooling (beyond terminology in coursework and RAG-related projects)."
+  ],
+  "weak_sections": [
+    "Education section could be clearer about current/expected graduation status and how coursework translates to job fit.",
+    "Lacks a short summary/objective at the top to quickly convey value proposition and fit for GenAI Engineer role.",
+    "LaTeX resume format may hinder ATS parsing; consider providing a plain-text or Word version for ease of screening."
+  ],
+  "overall_assessment": "Strong alignment with GenAI Engineer responsibilities is evident through hands-on work with RAG, LangChain, LLMs, cloud services, and agentic systems (Evaluator-Optimizer RAG; Agentic BMC Observability). However, to avoid being skipped, the candidate should explicitly address missing keywords (prompt templates, guardrails, regression tests, multi-agent/multi-step workflows, document retrieval strategies), demonstrate clear hands-on embeddings usage, fix minor formatting/typos, and provide an ATS-friendly plain-text resume plus a brief summary and explicit relocation/availability notes."
+}

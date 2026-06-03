@@ -1,0 +1,42 @@
+{
+  "job_id": "manual-remote-web-dev-ai-training",
+  "shortcomings": [
+    "No explicit HTML, CSS, or JavaScript proficiency mentioned (core frontend skills required by the role).",
+    "Lack of demonstrated frontend/web UI development experience (no projects showing responsive websites, UI components, or UX design collaboration).",
+    "Absence of frontend frameworks (e.g., React, Angular, Vue) in skills or projects; current skill list centers on backend/AI stacks.",
+    "No clear evidence of building customer-facing websites or UI work; projects are AI/ML/IR-centric rather than web UI focused.",
+    "Limited explicit examples of frontend-backend API integration in a web UI context (role emphasizes integrating backend APIs for web apps).",
+    "No mention of accessibility, responsive design, cross-browser compatibility or web performance optimization relevant to frontend work.",
+    "Few explicit references to design-team collaboration from a frontend perspective; current collaboration mentions are general (cross-functional teams) without UI/UX context.",
+    "No explicit remote/contractor work history or experience with client-facing web projects; resume shows corporate Accenture roles but not remote contract patterns.",
+    "Lack of a concise summary or objective aligning with the web developer role; sections could better highlight frontend impact and UI deliverables."
+  ],
+  "missing_keywords": [
+    "HTML",
+    "CSS",
+    "JavaScript",
+    "React (or Angular/Vue)",
+    "Frontend/web UI",
+    "Responsive design",
+    "UI/UX collaboration",
+    "Accessibility (a11y)",
+    "REST/HTTP API integration in frontend context",
+    "Web performance optimization",
+    "Cross-browser compatibility",
+    "Frontend testing (e.g., Jest, Cypress)",
+    "Design systems or UI libraries"
+  ],
+  "experience_gaps": [
+    "No demonstrable frontend development or UI component work.",
+    "No projects showing responsive websites or user-facing interfaces.",
+    "No explicit experience delivering customer-facing web apps or dashboards from a frontend perspective.",
+    "No frontend-focused metrics (load times, Lighthouse scores, accessibility).",
+    "Limited evidence of working directly with design teams to implement visual designs."
+  ],
+  "weak_sections": [
+    "PROJECT EXPERIENCE heavily AI/ML-centric with little emphasis on frontend UI work.",
+    "WORK EXPERIENCE bullets focus on backend/cloud architectures and AI-driven platforms rather than frontend deliverables.",
+    "Education section lacks a summary of electives or projects relevant to frontend/web dev; coursework listed is AI/deep learning oriented rather than UI/UX or web technologies."
+  ],
+  "overall_assessment": "Partial fit. The candidate demonstrates strong backend, cloud, and AI experience with measurable outcomes and relevant collaboration in cross-functional teams. However, the resume fails to demonstrate the core frontend/web development competencies the role requires (HTML/CSS/JavaScript, React/other frontend frameworks, responsive UI design, frontend-backend API integration in a web context, accessibility, and frontend testing). To improve the match, the candidate should add a dedicated frontend/UI section or projects showcasing responsive websites, UI components, and collaboration with design teams, and explicitly list frontend technologies (HTML/CSS/JS and a modern framework). Including a link to a live web project or portfolio with UI work and remote/contractor experience would significantly strengthen alignment for this role."
+}
