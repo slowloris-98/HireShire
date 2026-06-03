@@ -47,20 +47,22 @@ Each phase writes output that the next phase reads automatically (always picks t
 Greenhouse API → data/runs/<ts>/{manifest,company1,...}.json   [Job[]]
               → data/matches/<ts>/{manifest,shortlisted,rejected}.json  [MatchResult[]]
               → data/applied/{applied.json, screenshots/}   [ApplyRecord[]]
-              → data/tuned/<ts>/<job_id>/{critique.json, resume.tex, resume.pdf}
+              → data/tuned/<ts>/<job_id>/{job_description.txt, critique.json, <Name>_Resume.tex, <Name>_Resume.pdf}
 ```
 
 ### Phase Internals
 
-**Phases 1–3** all use `asyncio.run(main())` with semaphore-controlled concurrency. The concurrency and rate-limiting knobs live in each phase's YAML config.
+**All four phases** use `asyncio.run(main())`. Concurrency and rate-limiting knobs live in each phase's YAML config.
 
-**Phase 2 (Matcher)** uses a `LLMBackend` Protocol in [hireshire/matcher/scorer.py](hireshire/matcher/scorer.py). Adding a new provider means implementing `score(job, resume_text) -> ScoringSchema`. The active backend is selected by the `LLM_PROVIDER` env var (`gemini` / `openai` / `anthropic`).
+**Phase 2 (Matcher)** uses a `LLMBackend` Protocol in [hireshire/matcher/scorer.py](hireshire/matcher/scorer.py). Adding a new provider means implementing `score(job, resume_text) -> ScoringSchema`. The active backend is selected by the `LLM_PROVIDER` env var (`gemini` / `openai` / `anthropic`). Results are written incrementally to `progress.jsonl` so a mid-run crash can be resumed without re-scoring already-processed jobs.
+
+**Phase 3 (Applier)** drives a real browser via the **browser-use** library (Playwright). Each job goes through `QuestionAnswerer` (LLM generates answers to application questions) then `FormFiller` (browser-use agent fills and submits the form). Screenshots are saved per application.
 
 **Phase 4 (Tuner)** runs two sequential LLM passes per job:
-1. `ResumeEvaluator` — recruiter-perspective critique → `Critique` Pydantic model
+1. `ResumeEvaluator` — recruiter-perspective critique → `EvaluatorResult` Pydantic model
 2. `ResumeOptimizer` — takes critique + resume LaTeX + optional projects pool → optimized LaTeX
 
-After optimization, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles with `xelatex` and loops up to 2 trim retries if the PDF exceeds one page. The tuner supports separate `evaluator_provider`/`optimizer_provider` backends (defaults to `LLM_PROVIDER`).
+After optimization, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles with `pdflatex` and loops up to 2 trim retries if the PDF exceeds one page. The tuner supports separate `evaluator_provider`/`optimizer_provider` backends (defaults to `LLM_PROVIDER`). Setting `optimizer_provider: claude_code` routes the optimization call through a local Claude CLI subprocess instead of the API.
 
 ### Key Models
 
@@ -69,7 +71,7 @@ After optimization, [hireshire/tuner/store.py](hireshire/tuner/store.py) compile
 | `Job` | `hireshire/models/job.py` | Scraper → Matcher |
 | `MatchResult` | `hireshire/matcher/scorer.py` | Matcher → Applier / Tuner |
 | `ScoringSchema` | `hireshire/matcher/scorer.py` | Matcher (LLM output) |
-| `Critique` | `hireshire/tuner/evaluator.py` | Tuner Pass 1 → Pass 2 |
+| `EvaluatorResult` | `hireshire/tuner/evaluator.py` | Tuner Pass 1 → Pass 2 |
 | `ApplyRecord` | `hireshire/applier/store.py` | Applier output |
 
 `Job.content_text` auto-strips HTML via a Pydantic validator on ingest.
@@ -78,7 +80,7 @@ After optimization, [hireshire/tuner/store.py](hireshire/tuner/store.py) compile
 
 Configured in `.env` (see `.env.example`):
 - `LLM_PROVIDER` — `gemini` / `openai` / `anthropic`
-- `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` — whichever provider(s) are used
+- `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` — whichever provider(s) are used
 - Tuner can use different providers for evaluator vs optimizer via `evaluator_provider` / `optimizer_provider` in `config/tuner.yaml`
 
 ### Rate Limiting

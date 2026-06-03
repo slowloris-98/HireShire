@@ -11,9 +11,11 @@ build/
 data/runs/
 data/matches/
 data/applied/
+data/tuned/
 
 # Resume (personal data)
 data/Udayan_Resume.pdf
+data/job_descriptions/
 
 # Environment
 .env
@@ -21,3 +23,5 @@ data/Udayan_Resume.pdf
 # IDE
 .vscode/
 .idea/
+
+

@@ -10,13 +10,13 @@
 **Duration:** Dec 2019 – Apr 2020
 
 #### Description
-Designed and developed a Financial Analytics Platform to help stakeholders process, manage, and audit large volumes of tax receipt data. The platform was built on a Java Spring MVC architecture with a PostgreSQL backend capable of handling 200,000+ tax receipts. Interactive data visualization modules were integrated into the dashboard to surface insights and streamline audit workflows, reducing the manual effort required for financial reviews and accelerating resolution efficiency for internal stakeholders.
+Designed and developed a full-stack Financial Analytics Platform to help stakeholders process, manage, and audit large volumes of tax receipt data. The frontend was built with HTML, CSS, and JavaScript, delivering an interactive dashboard with dynamic data visualization modules. The backend was powered by Java Spring MVC, connected to a PostgreSQL database capable of handling 200,000+ tax receipts. The platform replaced manual audit review processes with structured, queryable views — streamlining workflows and accelerating resolution efficiency for internal stakeholders.
 
 #### Contributions
-- Designed and built a Java Spring MVC web dashboard as the primary interface for financial analytics
+- Built the full frontend using HTML, CSS, and JavaScript — including responsive dashboard layouts and interactive data visualization modules for tax receipt trends and audit insights
+- Designed and implemented the Java Spring MVC backend, handling request routing, business logic, and server-side data processing
 - Architected the PostgreSQL database to store and query 200,000+ tax receipts efficiently
-- Developed interactive data visualization modules to surface trends, anomalies, and audit-relevant insights from the tax receipt data
-- Integrated the visualization layer with the backend to enable real-time filtering and reporting for stakeholders
+- Integrated the JavaScript frontend with the Spring MVC backend via RESTful endpoints to enable real-time filtering and reporting
 - Streamlined audit workflows by replacing manual review processes with structured, queryable dashboard views
 
 #### Impact & Results
@@ -24,11 +24,47 @@ Designed and developed a Financial Analytics Platform to help stakeholders proce
 - Accelerated audit resolution efficiency by **14%** for stakeholders through interactive visualizations and streamlined workflows
 
 #### Tools / Frameworks / Languages
-- **Language:** Java
-- **Framework:** Spring MVC
+- **Frontend:** HTML, CSS, JavaScript (interactive dashboard and data visualization)
+- **Backend:** Java, Spring MVC
 - **Database:** PostgreSQL
-- **Frontend:** Interactive data visualization modules (dashboard UI)
+- **Architecture:** Full-stack MVC web application
 - **Domain:** Financial analytics, tax data processing, audit workflow automation
+
+---
+
+### Software Engineer — Accenture, Bengaluru, India
+**Associate Software Engineer:** Nov 2020 – Nov 2021
+**Software Engineer:** Dec 2021 – Jul 2024
+**Awards:** ACE (Excellence) Award & Contribution Award for creating exceptional value in key client growth priority areas; promoted to Software Engineer via Accenture's fast-track process based on performance
+
+#### Description
+Worked as a Software Engineer at Accenture building cloud-native, serverless solutions on AWS for enterprise clients. Core work spanned designing and delivering microservices-based platforms across notification systems, cloud storage optimization, security remediation, server operations, and internal developer tooling — all on AWS serverless architecture integrated with Azure DevOps CI/CD pipelines. Also contributed to an internal ChatOps platform and a recommendation engine for automation assets, directly reducing operational overhead for cross-functional teams. Recognized with the ACE (Excellence) Award and Contribution Award, and promoted via the fast-track process ahead of the standard cycle based on consistent high performance.
+
+#### Contributions
+- Architected a user notification system using AWS API Gateway, Lambda, and DynamoDB to deliver real-time remediation stage notifications to end users via a microservices-based design
+- Optimized cloud storage by redesigning DynamoDB access patterns — including schema, partition keys, and sort keys — and refactoring associated CRUD microservices to reduce retrieval latency
+- Delivered a code vulnerability remediation solution using a serverless microservices architecture with AWS Lambda, S3, and EventBridge integrated with Azure DevOps, safeguarding 400+ applications across organizations
+- Designed a single-touch server patching solution to autonomously resolve ServiceNow alerts using serverless architecture (AWS + Azure DevOps), dramatically reducing manual intervention in the patching cycle
+- Partnered with cross-functional teams to build a ChatOps platform that routes natural language queries to automation workflows via integrated serverless microservices, replacing a high-overhead manual process
+- Developed an analytics-driven recommendation engine for 100+ automation assets, implementing weighted scoring logic to personalize tool suggestions and reduce time users spend discovering relevant automations
+- Built automation solutions and custom tasks for CI/CD pipelines using Azure DevOps, streamlining deployment cycles and reducing mean time to resolve pipeline failures
+
+#### Impact & Results
+- **20% increase in DAU** post-launch of the user notification system
+- **37% reduction in DynamoDB retrieval latency** through access pattern redesign and CRUD microservice optimization
+- **400+ applications** protected across organizations via the serverless code vulnerability remediation solution
+- **80% reduction in Mean Time to Resolution (MTTR)** for server patching via the single-touch patching solution
+- **40% reduction in operational overhead** for the ChatOps platform, cutting average query resolution time from ~5 minutes to ~1 minute
+- **30% reduction in automation asset discovery time** through the personalized recommendation engine
+- Awarded the **ACE (Excellence) Award** and **Contribution Award** for creating exceptional value in key client growth priority areas
+- **Promoted to Software Engineer via fast-track process** ahead of the standard promotion cycle, based on performance
+
+#### Tools / Frameworks / Languages
+- **Cloud:** AWS (API Gateway, Lambda, DynamoDB, S3, EventBridge)
+- **DevOps / CI/CD:** Azure DevOps (pipelines, custom tasks, automation)
+- **Architecture:** Serverless microservices, event-driven architecture
+- **Integrations:** ServiceNow (alert-driven automation), ChatOps workflows
+- **Domain:** Cloud infrastructure, DevSecOps, AIOps, enterprise automation
 
 ---
 
@@ -59,7 +95,6 @@ The agent learns through trial and error: it receives positive rewards for corre
 - The DQN agent successfully learned to distinguish benign from DDoS traffic over training episodes
 - Cumulative reward increased steadily across episodes, demonstrating convergence of the learned policy
 - Epsilon decayed from 1.0 toward a minimum, confirming the agent transitioned from exploration to exploitation
-- **[Add specific metrics if available: final detection accuracy %, F1 score, average reward at convergence, number of training episodes, etc.]**
 
 ---
 
@@ -93,9 +128,9 @@ The project covers the full ML pipeline: signal preprocessing (Butterworth low-p
 - Built and evaluated baseline models: Decision Tree, K-Nearest Neighbors, Naive Bayes
 - Built and evaluated advanced models: Random Forest, SVM, CNN, and LSTM using Keras
 - Implemented Leave-One-Subject-Out (LOSO) cross-validation for user-level generalization testing
-- Implemented architecture-based transfer learning: recreated the HAR-CNN architecture (`Conv1D → MaxPooling → Conv1D → GlobalMaxPooling → Dense`) and fine-tuned it on MMASH with zero-padded inputs of shape `(200, 3)`
+- Implemented architecture-based transfer learning: recreated the HAR-CNN architecture (Conv1D → MaxPooling → Conv1D → GlobalMaxPooling → Dense) and fine-tuned it on MMASH with zero-padded inputs of shape (200, 3)
 - Conducted data exploration and visualization notebooks separately before modelling
-- Wrote the full project report (`CS256_ProjectReport_Udayan.pdf`)
+- Wrote the full project report (CS256_ProjectReport_Udayan.pdf)
 
 ---
 
@@ -105,7 +140,6 @@ The project covers the full ML pipeline: signal preprocessing (Butterworth low-p
 - Architecture-based transfer learning from UCI HAR to MMASH showed effective domain adaptation without requiring pre-trained weights
 - Evaluated across 4 metrics: Accuracy, Precision, Recall, and F1-Score
 - Used 5-fold cross-validation in addition to LOSO for robust performance estimation
-- **[Add any additional specifics if available: number of activity classes, number of subjects in MMASH, dataset size, best F1 score, etc.]**
 
 ---
 
@@ -140,7 +174,7 @@ The project goes beyond a simple weather wrapper — it includes a full user aut
 - Implemented city-specific weather query endpoints
 - Integrated MongoDB as the persistent data store for user management
 - Structured the project with a clean layered architecture: Controllers → Services → Models
-- Configured `appsettings.json` for environment-specific MongoDB connection strings and API keys
+- Configured appsettings.json for environment-specific MongoDB connection strings and API keys
 
 ---
 
@@ -148,7 +182,6 @@ The project goes beyond a simple weather wrapper — it includes a full user aut
 - Fully functional REST API with secure authentication — ready for frontend or mobile client integration
 - Dual-mode weather lookup (city name or auto IP geolocation) improves usability without requiring explicit user input
 - JWT authentication ensures stateless, scalable security with no server-side session storage
-- **[Add specifics if available: number of endpoints, average response time, any deployment details (Azure, Docker, etc.), weather data provider used (OpenWeatherMap, etc.)]**
 
 ---
 
@@ -163,73 +196,28 @@ The project goes beyond a simple weather wrapper — it includes a full user aut
 
 ---
 
-## Project 5: Loan Disbursement Amount Prediction
-
-**Repository:** https://github.com/slowloris-98/loan_amount_prediction
-
----
-
-### Description
-A machine learning project that predicts the optimal loan amount to disburse to an applicant based on demographics, loan purpose, regional data, market trends, and income features. The project frames loan prediction as a regression problem — not just approving or rejecting a loan, but determining the right dollar amount to offer each applicant.
-
-The dataset used is the **BigQuery Fintech Dataset** from Kaggle, which spans six relational tables: customer information, historical loan disbursements, year-over-year loan count trends, loan purposes, regional loan data, and state-to-region geographic mappings. An ETL pipeline (in both SQL and Databricks notebook formats) was built to join, clean, and prepare the data before modelling. Five models were implemented and benchmarked — Linear Regression, Decision Tree, Random Forest, Multi-Layer Perceptron (MLP), and RNN (LSTM) — to comprehensively compare classical and deep learning approaches on a fintech regression task.
-
----
-
-### My Contributions
-- Designed and implemented the full ETL pipeline (`ETL.sql` and `ETL.dbc`) to extract, join, and transform data across six Kaggle BigQuery tables
-- Performed data preprocessing: dropped columns with >50% missing values, removed duplicates, excluded null string records, applied z-score normalization, and one-hot encoded categorical variables
-- Built and experimented with data visualizations: loan amount by loan type distribution and total loan amount by region
-- Implemented and tuned five separate models in individual notebooks: Linear Regression (`Regression.ipynb`), Decision Tree (`Decision Tree.ipynb`), Random Forest (`Random Forest.ipynb`), MLP (`MLP.ipynb`), and RNN/LSTM (`RNN.ipynb`)
-- Experimented with decision tree depths ranging from 5 to 20 to fine-tune performance
-- Designed the RNN with three stacked LSTM layers (50, 25, 12 units) followed by a single-unit regression output
-- Conducted cross-model comparative evaluation on a 70-30 train-test split
-- Wrote the project conclusion and analysis, documenting which models performed best and why
-
----
-
-### Impact & Results
-- **Linear Regression** performed competitively against tree and neural network models, indicating strong linear correlations in the fintech dataset
-- **Decision Tree** and **Random Forest** achieved comparable results, with Random Forest producing smoother, more generalizable predictions due to ensemble averaging
-- **RNN/LSTM** confirmed the absence of sequential or temporal patterns in the data — a valuable null result that validates the dataset's structure
-- Five models benchmarked end-to-end on the same dataset, enabling a rigorous, apples-to-apples comparison
-- **[Add specific metric values from the evaluation table in your README: R², RMSE, MAE for each model — this is the most important thing to fill in here]**
-
----
-
-### Tools / Frameworks / Languages
-- **Language:** Python, SQL
-- **ETL:** Apache Spark / Databricks (`.dbc` notebook), SQL (`ETL.sql`)
-- **Deep Learning:** Keras/TensorFlow — RNN with LSTM layers, MLP
-- **Classical ML:** Scikit-learn — Linear Regression, Decision Tree, Random Forest
-- **Dataset:** BigQuery Fintech Dataset (Kaggle) — 6 relational tables
-- **Libraries:** Pandas, NumPy, Matplotlib, Scikit-learn, Keras
-- **Notebook:** Jupyter Notebook
-
----
-
-## Project 6: NSP_QLoRa – Fine-Tuning Mistral-7B for Natural Language Inference
+## Project 4: Natural Language Inference using QLoRa
 
 **Repository:** https://github.com/slowloris-98/NSP_QLoRa
 
 ---
 
 ### Description
-A rigorous comparative benchmark study investigating whether parameter-efficient fine-tuning (PEFT) of a large generative LLM can match purpose-built discriminative models on a structured classification task. The central research question: *can updating fewer than 0.2% of a 7.2B-parameter generative model's weights match a task-specific 355M discriminative baseline?*
+A rigorous comparative benchmark study investigating whether parameter-efficient fine-tuning (PEFT) of a large generative LLM can match purpose-built discriminative models on a structured classification task. The central research question: can updating fewer than 0.2% of a 7.2B-parameter generative model's weights match a task-specific 355M discriminative baseline?
 
-The task is **Natural Language Inference (NLI)** — given a premise and hypothesis, classify their relationship as Entailment, Neutral, or Contradiction. The dataset is **GLUE MNLI** (15,000 training samples, 1,000 validation samples). Four models are benchmarked end-to-end: RoBERTa-large-mnli (discriminative baseline), Mistral-7B zero-shot, Mistral-7B + QLoRA, and Mistral-7B + DoRA. Key engineering challenges include loading a 7.2B parameter model on a single Colab GPU using 4-bit NF4 quantization via `bitsandbytes` (reducing VRAM from ~28 GB to ~3.5 GB), and designing a prompt-parsing pipeline to extract discrete class labels from free-form generated text.
+The task is **Natural Language Inference (NLI)** — given a premise and hypothesis, classify their relationship as Entailment, Neutral, or Contradiction. The dataset is **GLUE MNLI** (15,000 training samples, 1,000 validation samples). Four models are benchmarked end-to-end: RoBERTa-large-mnli (discriminative baseline), Mistral-7B zero-shot, Mistral-7B + QLoRA, and Mistral-7B + DoRA. Key engineering challenges include loading a 7.2B parameter model on a single Colab GPU using 4-bit NF4 quantization via bitsandbytes (reducing VRAM from ~28 GB to ~3.5 GB), and designing a prompt-parsing pipeline to extract discrete class labels from free-form generated text.
 
 ---
 
 ### My Contributions
 - Designed the full experimental setup: task formulation, dataset selection (GLUE MNLI), prompt format, and evaluation protocol
-- Implemented 4-bit NF4 quantization via `bitsandbytes` to enable 7B-parameter model training on a single A100/T4 GPU in Google Colab, reducing GPU memory footprint by ~87% (from ~28 GB to ~3.5 GB)
+- Implemented 4-bit NF4 quantization via bitsandbytes to enable 7B-parameter model training on a single A100/T4 GPU in Google Colab, reducing GPU memory footprint by ~87% (from ~28 GB to ~3.5 GB)
 - Configured and trained QLoRA (rank=16, alpha=32, targeting q/k/v/o projection layers, lr=2e-4, 2 epochs, effective batch size=32, paged AdamW 8-bit optimizer, BF16 mixed precision, gradient checkpointing)
-- Configured and trained DoRA (identical to QLoRA but with `use_dora=True` and lr halved to 1e-4 to account for DoRA's sensitivity to larger weight updates)
-- Built separate evaluation scripts for all four models (`evaluate_roBERTa.py`, `evaluate_baseline_llm.py`, `evaluate_finetuned_llm.py`) and a dataset utility (`dataset.py`) for MNLI loading and prompt formatting
-- Trained and saved LoRA adapter weights (`.safetensors`) for both QLoRA and DoRA variants
-- Wrote three detailed code and reasoning walkthroughs: `nli_reasoning_walkthrough.md`, `nsp_classification_walkthrough.md`, `nsp_qlora_code_walkthrough.md`
-- Conducted multiple timestamped evaluation runs and systematically stored results in `results/`
+- Configured and trained DoRA (identical to QLoRA but with use_dora=True and lr halved to 1e-4 to account for DoRA's sensitivity to larger weight updates)
+- Built separate evaluation scripts for all four models (evaluate_roBERTa.py, evaluate_baseline_llm.py, evaluate_finetuned_llm.py) and a dataset utility (dataset.py) for MNLI loading and prompt formatting
+- Trained and saved LoRA adapter weights (.safetensors) for both QLoRA and DoRA variants
+- Wrote three detailed code and reasoning walkthroughs: nli_reasoning_walkthrough.md, nsp_classification_walkthrough.md, nsp_qlora_code_walkthrough.md
+- Conducted multiple timestamped evaluation runs and systematically stored results in results/
 
 ---
 
@@ -246,12 +234,122 @@ The task is **Natural Language Inference (NLI)** — given a premise and hypothe
 - **Language:** Python
 - **Base Model:** Mistral-7B-v0.3 (7.2B parameters, generative LLM)
 - **Discriminative Baseline:** RoBERTa-large-mnli (355M parameters)
-- **PEFT Methods:** QLoRA, DoRA (via Hugging Face `peft`)
-- **Quantization:** 4-bit NF4 via `bitsandbytes`
-- **Training Framework:** `trl` SFTTrainer, Hugging Face `transformers` Trainer API
-- **Dataset:** GLUE MNLI (Hugging Face `datasets`)
+- **PEFT Methods:** QLoRA, DoRA (via Hugging Face peft)
+- **Quantization:** 4-bit NF4 via bitsandbytes
+- **Training Framework:** trl SFTTrainer, Hugging Face transformers Trainer API
+- **Dataset:** GLUE MNLI (Hugging Face datasets)
 - **Libraries:** PyTorch, Transformers, PEFT, BitsAndBytes, TRL, Accelerate, Scikit-learn
 - **Compute:** Google Colab (A100 / T4 GPU)
 - **Notebook:** Jupyter Notebook
+
+---
+
+## Project 5: Evaluator-Optimizer RAG Framework
+
+**Repository:** https://github.com/slowloris-98/Evaluator-Optimizer-RAG
+**Publication:** Accepted at an IEEE Conference
+
+---
+
+### Description
+A feedback-driven Retrieval-Augmented Generation (RAG) pipeline that uses cross-LLM reflection to iteratively improve answer quality on video-based MMLU questions. Rather than relying on a single LLM for generation and evaluation, the system separates these roles across three frontier models: **GPT-4o** generates the base answer, **Gemini** acts as a feedback/critic LLM that reviews and refines it, and **Llama 3.3-70B** serves as the independent evaluator scoring outputs using RAGAS metrics.
+
+The pipeline is benchmarked across four retrieval configurations combining two embedding models (BGE-base-en-v1.5, all-MiniLM-L6-v2) with two retrieval strategies (Similarity Search, MMR — Maximal Marginal Relevance). The dataset spans 30 video lectures across three STEM subjects (Chemistry, Physics, Math — 10 videos each), with transcripts forming the retrieval corpus. Evaluation spans seven RAGAS metrics: Faithfulness, Answer Relevancy, Accuracy, Response Groundedness, Semantic Similarity, String Similarity, and Context Recall. The work was accepted at an IEEE Conference.
+
+---
+
+### My Contributions
+- Designed the full cross-reflective RAG architecture: base generation (GPT-4o) → feedback/refinement (Gemini) → independent evaluation (Llama 3.3-70B via RAGAS)
+- Built the data preparation pipeline (video_mmlu_data_preparation.ipynb) to preprocess 30 video lectures across Chemistry, Physics, and Math, extracting transcripts and producing the curated QA dataset
+- Implemented the main RAG pipeline (evaluator_optimizer_rag.ipynb) covering: document ingestion, chunking, embedding, vector store retrieval, base answer generation, cross-LLM feedback loop, and RAGAS evaluation
+- Benchmarked all four retrieval configurations: BGE + Similarity, BGE + MMR, MiniLM + Similarity, MiniLM + MMR
+- Built the results aggregation pipeline (generate_summary_csvs.ipynb) to compile per-video, per-subject, and cross-embedding comparison summaries with timestamped outputs
+- Designed and included the system architecture diagram (evaluator-optimizer-RAG-architecture.png)
+- Wrote and submitted the research paper, which was accepted at an IEEE Conference
+
+---
+
+### Impact & Results
+Evaluated across 30 videos (Chemistry, Physics, Math) and 4 retrieval configurations.
+
+Overall performance averaged across all 4 configurations (Base → Feedback):
+- **Faithfulness:** 0.802 → 0.913 (+0.111)
+- **Response Groundedness:** 0.879 → 0.988 (+0.109), reaching near-perfect 0.99
+- **Answer Relevancy:** 0.839 → 0.890 (+0.051)
+- **Accuracy:** 0.671 → 0.717 (+0.046)
+- **Semantic Similarity:** 0.856 → 0.874 (+0.018)
+- **Context Recall:** 0.964 → 0.964 (stable — retrieval quality unchanged, as expected)
+
+Best single configuration — **BGE + MMR**: Faithfulness 0.797 → 0.929 (+0.132), Accuracy 0.666 → 0.723 (+0.057)
+
+Best subject-wise faithfulness improvements:
+- Chemistry (BGE + MMR): +0.178 Faithfulness, +0.090 Accuracy
+- Physics (MiniLM + MMR): +0.142 Faithfulness
+- Math (MiniLM + MMR): +0.103 Faithfulness, +0.045 Accuracy
+
+**Key finding:** Cross-LLM feedback (Gemini critiquing GPT-4o) consistently improves all generative quality metrics across every configuration and subject, with the largest gains in Faithfulness (~+11pp) and Response Groundedness (~+11pp).
+
+---
+
+### Tools / Frameworks / Languages
+- **Language:** Python
+- **LLMs:** GPT-4o (OpenAI) — base generation; Gemini (Google) — feedback/optimizer; Llama 3.3-70B (Groq) — evaluator
+- **RAG Framework:** LangChain (vector store, retrieval, pipeline orchestration)
+- **Evaluation:** RAGAS (Faithfulness, Answer Relevancy, Accuracy, Response Groundedness, Semantic Similarity, String Similarity, Context Recall)
+- **Embeddings:** BGE-base-en-v1.5, all-MiniLM-L6-v2
+- **Retrieval Strategies:** Similarity Search, MMR (Maximal Marginal Relevance)
+- **Dataset:** Video-based MMLU — 30 videos across Chemistry, Physics, and Math
+- **APIs:** OpenAI API, Google AI API (Gemini), Groq API (Llama)
+- **Libraries:** LangChain, RAGAS, Pandas, Python-dotenv
+- **Notebook:** Jupyter Notebook
+- **Publication:** IEEE Conference (accepted)
+
+---
+
+## Project 6: Agentic Infrastructure Observability
+
+**Repository:** https://github.com/slowloris-98/Agentic-Oberservability-BMC
+**Demo:** https://www.youtube.com/watch?v=YqEp3CP8ePM
+**Hackathon:** Won first prize
+
+---
+
+### Description
+A full-stack agentic AI platform for intelligent, autonomous monitoring and remediation of data center hardware. Built for the **Axiado Hackathon**, the system addresses a core gap in legacy infrastructure management: traditional tools are reactive, fragmented, and require heavy manual intervention. This platform couples deep observability with autonomous LLM-driven control — hardware telemetry is continuously ingested, an AI agent reasons over it, and corrective actions are triggered autonomously with minimal human input.
+
+The architecture spans seven integrated layers: a mocked **Redfish API** (the industry standard BMC interface) for hardware telemetry simulation and control, a **FastAPI backend** for data ingestion and rule-based classification, **Prometheus + Grafana** for real-time metrics and dashboards embedded in the UI, **MongoDB + S3** for historical storage and log archival, a **LangChain + Gemini AI** agent supporting both inference queries ("What faults occurred between timestamps?") and action queries ("Set fan speed to 100%"), and a **React + TypeScript** frontend with a conversational chat panel, real-time log stream, and embedded Grafana dashboards.
+
+---
+
+### My Contributions
+- Contributed across 107 commits to a production-quality full-stack agentic system
+- Co-designed the overall system architecture (documented in AxiadoHackathonArchitecture.png)
+- Worked with the Redfish API mock layer to simulate real BMC hardware telemetry and control endpoints
+- Implemented and contributed to the LangChain + Gemini AI agent supporting dual query modes: inference (historical data lookups via MongoDB/S3) and action (hardware control via Redfish endpoints)
+- Built and contributed to the FastAPI backend for telemetry ingestion, rule-based signal classification, SSE log streaming, and Prometheus /metrics exposure
+- Integrated Prometheus scraping (5-second polling) and Grafana dashboard embedding into the React UI
+
+---
+
+### Impact & Results
+- End-to-end autonomous infrastructure management: telemetry ingestion → AI reasoning → hardware control actions, all within a single unified interface
+- **Two-mode AI agent** supporting natural language inference (historical analysis) AND real-time hardware action commands via Redfish — a significant step beyond passive dashboards
+- Fully mocked Redfish API built from scratch, enabling realistic simulation of BMC-level controls (fan speeds, voltage thresholds, PSU power limits) without requiring physical hardware
+- Prometheus + Grafana metrics pipeline delivering 5-second refresh real-time visibility, embedded directly in the React UI
+- Real-time log streaming via Server-Sent Events (SSE) for live operational situational awareness
+- **107 commits** across the team reflecting sustained, production-quality development effort
+
+---
+
+### Tools / Frameworks / Languages
+- **Languages:** Python, TypeScript
+- **Backend:** FastAPI (telemetry ingestion, rule-based classification, SSE log streaming, Prometheus metrics endpoint)
+- **AI / LLM Agent:** LangChain + Gemini AI (inference & action query modes)
+- **Hardware Interface:** Redfish API (mocked from scratch — BMC telemetry & control)
+- **Observability Stack:** Prometheus (metrics scraping), Grafana (real-time dashboards, embedded in UI)
+- **Storage:** MongoDB (transactional/historical telemetry), AWS S3 (log archival and snapshots)
+- **Frontend:** React + TypeScript (chat panel, real-time logs, embedded Grafana, query filters)
+- **Containerization:** Docker
+- **Domain:** AIOps, infrastructure observability, autonomous remediation, data center management
 
 ---
