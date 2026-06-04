@@ -1,0 +1,6 @@
+1. store pipeline results in a folder with timestamp
+1. Introduce Lever
+2. Introduce Ashby
+remove unecessary items from gitignore
+
+complete the loop - make the applier work
