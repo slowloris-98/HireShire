@@ -13,6 +13,7 @@ data/matches/
 data/applied/
 data/tuned/
 data/pipeline_results/
+data/pipeline/
 
 # Resume (personal data)
 data/resume_projects/

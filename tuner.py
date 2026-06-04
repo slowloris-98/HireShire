@@ -255,7 +255,7 @@ async def main(
                     quiet=quiet,
                 )
                 summary_rows.append((status, job.title, job.board_token))
-                if status == "tuned" and out_queue is not None:
+                if out_queue is not None:
                     pdf_path = store.run_dir / job.job_id / "Udayan_Atreya_Resume.pdf"
                     await out_queue.put({
                         "job_id": job.job_id,
@@ -263,8 +263,9 @@ async def main(
                         "company": job.board_token,
                         "job_url": str(match_result.absolute_url) if isinstance(match_result, MatchResult) else "",
                         "relevance_score": match_result.relevance_score if isinstance(match_result, MatchResult) else None,
-                        "resume_tex": str(store.run_dir / job.job_id / "Udayan_Atreya_Resume.tex"),
-                        "resume_pdf": str(pdf_path) if pdf_path.exists() else None,
+                        "resume_tex": str(store.run_dir / job.job_id / "Udayan_Atreya_Resume.tex") if status == "tuned" else None,
+                        "resume_pdf": str(pdf_path) if (status == "tuned" and pdf_path.exists()) else None,
+                        "tuner_status": status,
                         "tuner_run_id": run_id,
                         "processed_at": datetime.now(timezone.utc).isoformat(),
                     })

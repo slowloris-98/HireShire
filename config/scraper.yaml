@@ -2,7 +2,7 @@ settings:
   concurrency: 10
   request_timeout_s: 30
   retry_attempts: 3
-  max_age_hours: 6  # only keep jobs updated in the last N hours; remove this line to fetch all
+  max_age_hours: 12  # only keep jobs updated in the last N hours; remove this line to fetch all
   location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
     - "united states"
     - "remote"

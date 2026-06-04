@@ -6,6 +6,8 @@ via asyncio queues, then repeats on a schedule.
     python orchestrate.py --now        # run immediately, then every 4h
     python orchestrate.py --once       # run exactly once, no scheduling
     python orchestrate.py --interval 2 # every 2 hours instead of 4
+    python orchestrate.py --no-tuner   # scraper + matcher only (no resume tuning)
+    python orchestrate.py --no-matcher # scraper only (no scoring or tuning)
 """
 
 import argparse
@@ -62,8 +64,29 @@ def _setup_logging() -> None:
 _CSV_FIELDS = [
     "processed_at", "company", "title", "job_url",
     "relevance_score", "resume_tex", "resume_pdf",
-    "job_id", "tuner_run_id",
+    "tuner_status", "job_id", "tuner_run_id",
 ]
+
+
+async def _bypass_tuner(in_q: asyncio.Queue, out_q: asyncio.Queue) -> None:
+    while True:
+        item = await in_q.get()
+        if item is None:
+            break
+        match_result, job = item
+        await out_q.put({
+            "job_id": job.job_id,
+            "title": job.title,
+            "company": job.board_token,
+            "job_url": str(match_result.absolute_url),
+            "relevance_score": match_result.relevance_score,
+            "resume_tex": None,
+            "resume_pdf": None,
+            "tuner_status": "skipped",
+            "tuner_run_id": None,
+            "processed_at": datetime.now(timezone.utc).isoformat(),
+        })
+    await out_q.put(None)
 
 
 async def _track_results(q: asyncio.Queue, results_dir: Path) -> None:
@@ -89,30 +112,41 @@ async def _track_results(q: asyncio.Queue, results_dir: Path) -> None:
         logger.info("Tracked result: %s — %s", record["company"], record["title"])
 
 
-async def run_pipeline() -> None:
+async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False) -> None:
     run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 
-    # q1: scraper → matcher   — items: (board_token, list[Job]) | None
-    # q2: matcher → tuner     — items: (MatchResult, Job) | None
-    # q3: tuner → tracker     — items: result dict | None
-    q1: asyncio.Queue = asyncio.Queue()
-    q2: asyncio.Queue = asyncio.Queue()
-    q3: asyncio.Queue = asyncio.Queue()
-
-    results_dir = Path("data")
-    results_dir.mkdir(exist_ok=True)
+    results_dir = Path("data/pipeline") / run_id
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("=" * 60)
     logger.info("Pipeline starting — run %s", run_id)
     logger.info("=" * 60)
 
+    q3: asyncio.Queue = asyncio.Queue()
+
     try:
-        await asyncio.gather(
-            scraper.main(out_queue=q1, quiet=True, run_id=run_id),
-            matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id),
-            tuner.main(in_queue=q2, out_queue=q3, quiet=True),
-            _track_results(q3, results_dir),
-        )
+        if skip_matcher:
+            await scraper.main(quiet=True, run_id=run_id)
+            await q3.put(None)
+            await _track_results(q3, results_dir)
+        elif skip_tuner:
+            q1: asyncio.Queue = asyncio.Queue()
+            q2: asyncio.Queue = asyncio.Queue()
+            await asyncio.gather(
+                scraper.main(out_queue=q1, quiet=True, run_id=run_id),
+                matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id),
+                _bypass_tuner(q2, q3),
+                _track_results(q3, results_dir),
+            )
+        else:
+            q1: asyncio.Queue = asyncio.Queue()
+            q2: asyncio.Queue = asyncio.Queue()
+            await asyncio.gather(
+                scraper.main(out_queue=q1, quiet=True, run_id=run_id),
+                matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id),
+                tuner.main(in_queue=q2, out_queue=q3, quiet=True),
+                _track_results(q3, results_dir),
+            )
         logger.info("Pipeline complete — run %s", run_id)
     except Exception:
         logger.exception("Pipeline failed — run %s", run_id)
@@ -132,6 +166,14 @@ async def main() -> None:
         "--interval", type=float, default=4.0, metavar="HOURS",
         help="Hours between pipeline runs (default: 4)",
     )
+    parser.add_argument(
+        "--no-tuner", action="store_true",
+        help="Run scraper and matcher only; skip tuner",
+    )
+    parser.add_argument(
+        "--no-matcher", action="store_true",
+        help="Run scraper only; skip matcher and tuner",
+    )
     args = parser.parse_args()
 
     _setup_logging()
@@ -143,7 +185,7 @@ async def main() -> None:
         await asyncio.sleep(interval_s)
 
     while True:
-        await run_pipeline()
+        await run_pipeline(skip_matcher=args.no_matcher, skip_tuner=args.no_tuner)
         if args.once:
             break
         logger.info("Next run in %.1fh", args.interval)

@@ -40,6 +40,8 @@ python applier.py --dry-run       # override config, never submit
 python orchestrate.py --now        # run immediately, then every 4h
 python orchestrate.py --once       # run exactly once
 python orchestrate.py --interval 2 # custom interval in hours
+python orchestrate.py --no-tuner   # scraper + matcher only (skip resume tuning)
+python orchestrate.py --no-matcher # scraper only (skip scoring and tuning)
 ```
 
 ## Architecture
@@ -53,6 +55,9 @@ Greenhouse API → data/scraped/<ts>/{manifest,company1,...}.json   [Job[]]
               → data/matches/<ts>/{manifest,shortlisted,rejected}.json  [MatchResult[]]
               → data/tuned/<ts>/<job_id>/{job_description.txt, critique.json, <Name>_Resume.tex, <Name>_Resume.pdf}
               → data/applied/{applied.json, screenshots/}   [ApplyRecord[]]
+
+Orchestrator  → data/pipeline/<ts>/{pipeline_results.json, pipeline_results.csv}
+                  (all shortlisted jobs; resume fields null when tuner was skipped/errored)
 ```
 
 ### Phase Internals
@@ -104,14 +109,20 @@ The shared HTTP client ([hireshire/http_client.py](hireshire/http_client.py)) ha
 
 ### Orchestrator
 
-`orchestrate.py` wires Phases 1–3 as a streaming pipeline using two `asyncio.Queue` objects:
+`orchestrate.py` wires Phases 1–3 as a streaming pipeline using asyncio queues:
 
 ```
 scraper.main(out_queue=q1) ──► q1[(board_token, list[Job])] ──► matcher.main(in_queue=q1, out_queue=q2)
                                                                           │
-                                                              q2[(MatchResult, Job)] ──► tuner.main(in_queue=q2)
+                                                              q2[(MatchResult, Job)] ──► tuner.main(in_queue=q2, out_queue=q3)
+                                                                                                   │
+                                                                             q3[result dict] ──► _track_results → data/pipeline/<run_id>/
 ```
 
 Each script's `main()` accepts optional `in_queue`, `out_queue`, and `quiet` parameters. When `quiet=True` (set by orchestrator), all Rich UI is suppressed and Python `logging` is used instead. This allows the orchestrator to configure logging once (console + rotating file at `logs/orchestrate.log`) without conflict.
+
+**Pipeline results** are written to `data/pipeline/<run_id>/pipeline_results.{json,csv}` each run. Every shortlisted job appears in the results regardless of tuner outcome — the `tuner_status` field (`"tuned"` / `"skipped"` / `"error"`) indicates what happened, and `resume_tex`/`resume_pdf` are `null` when tuning didn't complete.
+
+**Skip flags** — `--no-tuner` replaces the tuner with a passthrough that marks all jobs `tuner_status: "skipped"` and writes results with null resume fields. `--no-matcher` runs the scraper only and writes an empty results file.
 
 Phase 4 (Applier) is intentionally excluded from the orchestrator — it remains manual.

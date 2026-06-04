@@ -13,6 +13,8 @@ Each phase is fully independent — its own entrypoint, module, config, and outp
 | **Config** | `config/scraper.yaml` | `config/matcher.yaml` | `config/tuner.yaml` | `config/applier.yaml` |
 | **Output** | `data/scraped/<id>/` | `data/matches/<id>/` | `data/tuned/<id>/` | `data/applied/` |
 
+Orchestrator summary (all shortlisted jobs + tuning status) is written to `data/pipeline/<run_id>/` each run.
+
 Shared across all phases: `hireshire/models/`, `hireshire/storage/`.
 
 ## Data Flow
@@ -314,9 +316,23 @@ The three phases run concurrently using asyncio queues:
 python orchestrate.py --now        # run immediately, then every 4h
 python orchestrate.py --once       # run exactly once
 python orchestrate.py --interval 2 # every 2 hours instead of 4
+python orchestrate.py --no-tuner   # scraper + matcher only (skip resume tuning)
+python orchestrate.py --no-matcher # scraper only (skip scoring and tuning)
 ```
 
 Logs are written to `logs/orchestrate.log` (rotates at 5 MB, keeps 5 files).
+
+### Output — `data/pipeline/<run_id>/`
+
+After each run, the orchestrator writes a summary of all shortlisted jobs to:
+
+```
+data/pipeline/2026-06-04T02-01-50Z/
+├── pipeline_results.json   # full records (array)
+└── pipeline_results.csv    # same data in CSV
+```
+
+Every shortlisted job appears regardless of tuner outcome. The `tuner_status` field indicates what happened (`"tuned"` / `"skipped"` / `"error"`), and `resume_tex`/`resume_pdf` are `null` when tuning didn't complete. With `--no-matcher` the file is written but empty (`[]`).
 
 ---
 
@@ -340,7 +356,8 @@ HireShire/
 │   ├── scraped/            # Phase 1 output (gitignored)
 │   ├── matches/            # Phase 2 output (gitignored)
 │   ├── tuned/              # Phase 3 output (gitignored)
-│   └── applied/            # Phase 4 output (gitignored)
+│   ├── applied/            # Phase 4 output (gitignored)
+│   └── pipeline/           # Orchestrator run summaries (gitignored)
 ├── logs/                   # Orchestrator logs (gitignored)
 └── hireshire/
     ├── models/job.py        # Shared Job data model

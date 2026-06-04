@@ -1,6 +1,15 @@
-1. store pipeline results in a folder with timestamp
 1. Introduce Lever
 2. Introduce Ashby
+
+allow to mold the work ex role according to the requirement as the work ex revolves around automation, devops, cicd, security automation, code scans, dev tools.
+
 remove unecessary items from gitignore
 
 complete the loop - make the applier work
+
+refine the tuner:
+
+look for a cheap option for tuning
+
+
+once pipeline is finished the final pipeline json / csv should be accesible from my phone
