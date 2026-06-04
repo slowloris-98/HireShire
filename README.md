@@ -1,6 +1,6 @@
 # HireShire
 
-Automated job search pipeline in four phases: **Scrape → Match → Apply → Tune**
+Automated job search pipeline in four phases: **Scrape → Match → Tune → Apply**
 
 ## Architecture
 
@@ -8,20 +8,20 @@ Each phase is fully independent — its own entrypoint, module, config, and outp
 
 | | Phase 1 | Phase 2 | Phase 3 | Phase 4 |
 |---|---|---|---|---|
-| **Run** | `python scraper.py` | `python matcher.py` | `python applier.py` | `python tuner.py` |
-| **Module** | `hireshire/scrapers/` | `hireshire/matcher/` | `hireshire/applier/` | `hireshire/tuner/` |
-| **Config** | `config/companies.yaml` | `config/matcher.yaml` | `config/applier.yaml` | `config/tuner.yaml` |
-| **Output** | `data/runs/<id>/` | `data/matches/<id>/` | `data/applied/` | `data/tuned/<id>/` |
+| **Run** | `python scraper.py` | `python matcher.py` | `python tuner.py` | `python applier.py` |
+| **Module** | `hireshire/scrapers/` | `hireshire/matcher/` | `hireshire/tuner/` | `hireshire/applier/` |
+| **Config** | `config/scraper.yaml` | `config/matcher.yaml` | `config/tuner.yaml` | `config/applier.yaml` |
+| **Output** | `data/scraped/<id>/` | `data/matches/<id>/` | `data/tuned/<id>/` | `data/applied/` |
 
 Shared across all phases: `hireshire/models/`, `hireshire/storage/`.
 
 ## Data Flow
 
 ```
-config/companies.yaml
+config/scraper.yaml
         │
         ▼
-python scraper.py  →  data/runs/<run_id>/{company}.json
+python scraper.py  →  data/scraped/<run_id>/{company}.json
                                 │
                                 ▼
         resume.pdf + config/matcher.yaml
@@ -29,15 +29,17 @@ python scraper.py  →  data/runs/<run_id>/{company}.json
                                 ▼
 python matcher.py  →  data/matches/<run_id>/shortlisted.json
                                 │
-                ┌───────────────┴────────────────┐
-                ▼                                ▼
-      config/applier.yaml             config/tuner.yaml
-                │                                │
-                ▼                                ▼
-python applier.py                    python tuner.py
-        │                                        │
-        ▼                                        ▼
-data/applied/applied.json          data/tuned/<run_id>/<job_id>/
+                                ▼
+                       config/tuner.yaml
+                                │
+                                ▼
+python tuner.py    →  data/tuned/<run_id>/<job_id>/
+                                │
+                                ▼
+                      config/applier.yaml
+                                │
+                                ▼
+python applier.py  →  data/applied/applied.json
 ```
 
 ---
@@ -48,7 +50,7 @@ data/applied/applied.json          data/tuned/<run_id>/<job_id>/
 
 ```bash
 pip install -r requirements.txt
-playwright install chromium   # required for Phase 3
+playwright install chromium   # required for Phase 4 (Applier)
 ```
 
 ### 2. Create your `.env` file
@@ -77,12 +79,16 @@ Put your resume PDF at `data/resume.pdf` and update `resume_path` in each phase'
 
 Fetches open job listings from company career pages via the **Greenhouse Job Board API**.
 
-### Configuration — `config/companies.yaml`
+### Configuration — `config/scraper.yaml`
 
 ```yaml
 settings:
   concurrency: 10          # parallel requests
   max_age_hours: 6         # only keep jobs updated in the last N hours (remove for all)
+  location_filter:         # case-insensitive substring match; remove or leave empty for all locations
+    - "united states"
+    - "remote"
+    - "india"
 
 companies:
   - name: Anthropic
@@ -93,16 +99,18 @@ companies:
 
 To add a company, find their Greenhouse board token (usually visible in their careers URL: `job-boards.greenhouse.io/{token}/jobs`) and add it to the list.
 
+The `location_filter` does a substring match against each job's `location` and `offices[].location` fields. Greenhouse doesn't support server-side location filtering, so this is applied client-side after fetching. Leave the list empty (or remove the key) to include all locations.
+
 ### Run
 
 ```bash
 python scraper.py
 ```
 
-### Output — `data/runs/<timestamp>/`
+### Output — `data/scraped/<timestamp>/`
 
 ```
-data/runs/2026-05-29T23-24-43Z/
+data/scraped/2026-05-29T23-24-43Z/
 ├── manifest.json       # run summary: total jobs, per-company status
 ├── anthropic.json      # array of Job objects
 └── stripe.json
@@ -136,8 +144,18 @@ settings:
   request_interval_s: 13     # seconds between requests (13s ≈ 4.6 RPM; set to 0 on paid tier)
   max_content_chars: 8000    # truncate job description before sending
   resume_path: data/resume.pdf
-  runs_dir: data/runs
+  projects_path: data/projects.md   # optional extra context appended to candidate profile
+  runs_dir: data/scraped
   matches_dir: data/matches
+
+title_filter:
+  include_keywords:          # title must contain at least one (leave empty to skip)
+    - engineer
+    - developer
+    - software
+  exclude_keywords:          # title must contain none of these
+    - principal
+    - staff
 ```
 
 ### Run
@@ -146,7 +164,7 @@ settings:
 python matcher.py
 ```
 
-Reads automatically from the most recent scraper run in `data/runs/`. Writes results incrementally to `progress.jsonl` so a mid-run crash can be resumed.
+Reads automatically from the most recent scraper run in `data/scraped/`. The `title_filter` pre-filters jobs by title before sending to the LLM, saving API calls. Writes results incrementally to `progress.jsonl` so a mid-run crash can be resumed.
 
 ### Output — `data/matches/<run_id>/`
 
@@ -178,9 +196,56 @@ Each entry in `shortlisted.json`:
 
 ---
 
-## Phase 3: Applier
+## Phase 3: Tuner
 
-Reads shortlisted jobs and fills out + submits applications using browser automation powered by **browser-use** (Playwright).
+Two-pass LLM resume optimizer. For each shortlisted job:
+1. **Evaluator** — LLM critiques your resume against the job description (shortcomings, missing keywords, experience gaps)
+2. **Optimizer** — LLM rewrites your LaTeX resume based on the critique, optionally pulling from a projects pool
+
+Compiles the result to PDF with `pdflatex`. If the output exceeds one page, retries optimization up to 2 times with a trim instruction.
+
+### Configuration — `config/tuner.yaml`
+
+```yaml
+settings:
+  resume_tex_path: data/resume.tex       # LaTeX source to optimize
+  projects_path: data/projects.md        # optional extra projects pool (markdown)
+  matches_dir: data/matches
+  tuned_dir: data/tuned
+
+  # Use different providers for each pass (both fall back to LLM_PROVIDER if unset)
+  evaluator_provider: openai
+  evaluator_model: gpt-4o-mini
+  optimizer_provider: anthropic          # use "claude_code" to route through the local Claude CLI
+  optimizer_model: claude-sonnet-4-6
+```
+
+### Run
+
+```bash
+python tuner.py                                          # pipeline mode (latest matcher run)
+python tuner.py --run-id <id>                            # specific matcher run
+python tuner.py --jd-file path/to/job.txt                # standalone (single job description)
+python tuner.py --jd-file path/to/job.txt --resume-tex path/to/resume.tex
+```
+
+### Output — `data/tuned/<run_id>/`
+
+```
+data/tuned/2026-05-29T23-24-43Z/
+├── manifest.json
+└── 5101378008/                  # one directory per job
+    ├── job_description.txt
+    ├── critique.json            # structured critique from Pass 1
+    ├── Resume.tex               # optimized LaTeX
+    └── Resume.pdf               # compiled PDF
+```
+
+---
+
+## Phase 4: Applier
+
+Reads shortlisted jobs and fills out + submits applications using browser automation powered by **browser-use** (Playwright). Run after the Tuner so the optimized resume PDFs are ready.
 
 > **Safety:** `dry_run: true` is the default. Set it to `false` in `config/applier.yaml` only when ready to submit live applications.
 
@@ -237,50 +302,21 @@ Status values: `"submitted"` | `"dry_run"` | `"error"` | `"skipped"`
 
 ---
 
-## Phase 4: Tuner
+## Orchestrator
 
-Two-pass LLM resume optimizer. For each shortlisted job:
-1. **Evaluator** — LLM critiques your resume against the job description (shortcomings, missing keywords, experience gaps)
-2. **Optimizer** — LLM rewrites your LaTeX resume based on the critique, optionally pulling from a projects pool
+`orchestrate.py` runs Phases 1–3 automatically as a streaming pipeline. Phase 4 (Applier) remains manual — review the tuned resumes before submitting.
 
-Compiles the result to PDF with `pdflatex`. If the output exceeds one page, retries optimization up to 2 times with a trim instruction.
-
-### Configuration — `config/tuner.yaml`
-
-```yaml
-settings:
-  resume_tex_path: data/resume.tex       # LaTeX source to optimize
-  projects_path: data/projects.md        # optional extra projects pool (markdown)
-  matches_dir: data/matches
-  tuned_dir: data/tuned
-
-  # Use different providers for each pass (both fall back to LLM_PROVIDER if unset)
-  evaluator_provider: openai
-  evaluator_model: gpt-4o-mini
-  optimizer_provider: anthropic          # use "claude_code" to route through the local Claude CLI
-  optimizer_model: claude-sonnet-4-6
-```
-
-### Run
+The three phases run concurrently using asyncio queues:
+- Each company's jobs are queued for the matcher as soon as they're fetched
+- Each shortlisted result is queued for the tuner as soon as it's scored
 
 ```bash
-python tuner.py                                          # pipeline mode (latest matcher run)
-python tuner.py --run-id <id>                            # specific matcher run
-python tuner.py --jd-file path/to/job.txt                # standalone (single job description)
-python tuner.py --jd-file path/to/job.txt --resume-tex path/to/resume.tex
+python orchestrate.py --now        # run immediately, then every 4h
+python orchestrate.py --once       # run exactly once
+python orchestrate.py --interval 2 # every 2 hours instead of 4
 ```
 
-### Output — `data/tuned/<run_id>/`
-
-```
-data/tuned/2026-05-29T23-24-43Z/
-├── manifest.json
-└── 5101378008/                  # one directory per job
-    ├── job_description.txt
-    ├── critique.json            # structured critique from Pass 1
-    ├── Resume.tex               # optimized LaTeX
-    └── Resume.pdf               # compiled PDF
-```
+Logs are written to `logs/orchestrate.log` (rotates at 5 MB, keeps 5 files).
 
 ---
 
@@ -290,20 +326,22 @@ data/tuned/2026-05-29T23-24-43Z/
 HireShire/
 ├── scraper.py              # Phase 1 entrypoint
 ├── matcher.py              # Phase 2 entrypoint
-├── applier.py              # Phase 3 entrypoint
-├── tuner.py                # Phase 4 entrypoint
+├── tuner.py                # Phase 3 entrypoint
+├── applier.py              # Phase 4 entrypoint
+├── orchestrate.py          # Pipeline orchestrator (runs phases 1–3 automatically)
 ├── requirements.txt
 ├── .env.example
 ├── config/
-│   ├── companies.yaml      # Phase 1 config
+│   ├── scraper.yaml        # Phase 1 config
 │   ├── matcher.yaml        # Phase 2 config
-│   ├── applier.yaml        # Phase 3 config
-│   └── tuner.yaml          # Phase 4 config
+│   ├── tuner.yaml          # Phase 3 config
+│   └── applier.yaml        # Phase 4 config
 ├── data/
-│   ├── runs/               # Phase 1 output (gitignored)
+│   ├── scraped/            # Phase 1 output (gitignored)
 │   ├── matches/            # Phase 2 output (gitignored)
-│   ├── applied/            # Phase 3 output (gitignored)
-│   └── tuned/              # Phase 4 output (gitignored)
+│   ├── tuned/              # Phase 3 output (gitignored)
+│   └── applied/            # Phase 4 output (gitignored)
+├── logs/                   # Orchestrator logs (gitignored)
 └── hireshire/
     ├── models/job.py        # Shared Job data model
     ├── storage/json_store.py
@@ -317,17 +355,17 @@ HireShire/
     │   ├── loader.py
     │   ├── scorer.py        # Gemini/OpenAI/Anthropic backends + MatchResult model
     │   └── store.py
-    ├── applier/
+    ├── tuner/
     │   ├── config.py
-    │   ├── answerer.py      # LLM-based question answering
-    │   ├── filler.py        # browser-use form filling
+    │   ├── evaluator.py     # Pass 1: recruiter critique → EvaluatorResult
+    │   ├── optimizer.py     # Pass 2: LaTeX optimization + trim retry loop
+    │   ├── prompts.py       # System prompts for both passes
     │   ├── loader.py
-    │   └── store.py
-    └── tuner/
+    │   └── store.py         # PDF compilation with pdflatex
+    └── applier/
         ├── config.py
-        ├── evaluator.py     # Pass 1: recruiter critique → EvaluatorResult
-        ├── optimizer.py     # Pass 2: LaTeX optimization + trim retry loop
-        ├── prompts.py       # System prompts for both passes
+        ├── answerer.py      # LLM-based question answering
+        ├── filler.py        # browser-use form filling
         ├── loader.py
-        └── store.py         # PDF compilation with pdflatex
+        └── store.py
 ```

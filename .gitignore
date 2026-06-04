@@ -8,14 +8,17 @@ dist/
 build/
 
 # Pipeline output
-data/runs/
+data/scraped/
 data/matches/
 data/applied/
 data/tuned/
 
 # Resume (personal data)
-data/Udayan_Resume.pdf
-data/job_descriptions/
+data/resume_projects/
+data/job_description/
+
+# Orchestrator logs
+logs/
 
 # Environment
 .env

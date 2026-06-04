@@ -10,8 +10,8 @@ class ApplierSettings(BaseModel):
     dry_run: bool = True
     matches_dir: str = "data/matches"
     applied_dir: str = "data/applied"
-    runs_dir: str = "data/runs"
-    resume_path: str = "data/Udayan_Resume.pdf"
+    runs_dir: str = "data/scraped"
+    resume_path: str = "data/resume_projects/Udayan_Resume.pdf"
     headless: bool = True
     inter_job_delay_s: float = 10.0
     max_steps: int = 40

@@ -7,10 +7,10 @@ from pydantic import BaseModel
 
 
 class TunerSettings(BaseModel):
-    resume_tex_path: str = "data/Udayan_Resume.tex"
-    projects_path: str = "data/projects.txt"
+    resume_tex_path: str = "data/resume_projects/Udayan_Resume.tex"
+    projects_path: str = "data/resume_projects/projects.md"
     matches_dir: str = "data/matches"
-    runs_dir: str = "data/runs"
+    runs_dir: str = "data/scraped"
     tuned_dir: str = "data/tuned"
     # Shared defaults — used when per-pass overrides are not set
     model: str = "claude-sonnet-4-6"

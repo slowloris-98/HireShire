@@ -1,0 +1,88 @@
+settings:
+  concurrency: 10
+  request_timeout_s: 30
+  retry_attempts: 3
+  max_age_hours: 6  # only keep jobs updated in the last N hours; remove this line to fetch all
+  location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
+    - "united states"
+    - "remote"
+    - "india"
+
+companies:
+  - name: Figma
+    greenhouse_token: figma
+
+  - name: Stripe
+    greenhouse_token: stripe
+
+  - name: Airbnb
+    greenhouse_token: airbnb
+
+  - name: Airtable
+    greenhouse_token: airtable
+
+  - name: Datadog
+    greenhouse_token: datadog
+
+  - name: GitLab
+    greenhouse_token: gitlab
+
+  - name: Asana
+    greenhouse_token: asana
+
+  - name: Scale AI
+    greenhouse_token: scaleai
+
+  - name: Webflow
+    greenhouse_token: webflow
+
+  - name: Cloudflare
+    greenhouse_token: cloudflare
+
+  - name: Pinterest
+    greenhouse_token: pinterest
+
+  - name: Reddit
+    greenhouse_token: reddit
+
+  - name: Lyft
+    greenhouse_token: lyft
+
+  - name: Instacart
+    greenhouse_token: instacart
+
+  - name: Twilio
+    greenhouse_token: twilio
+
+  - name: PagerDuty
+    greenhouse_token: pagerduty
+
+  - name: Elastic
+    greenhouse_token: elastic
+
+  - name: Okta
+    greenhouse_token: okta
+
+  - name: Coursera
+    greenhouse_token: coursera
+
+  - name: Duolingo
+    greenhouse_token: duolingo
+
+  - name: Roblox
+    greenhouse_token: roblox
+
+  - name: Rubrik
+    greenhouse_token: rubrik
+
+  - name: Crunchyroll
+    greenhouse_token: crunchyroll
+
+  - name: Rockstar Games
+    greenhouse_token: rockstargames
+
+  - name: Sony
+    greenhouse_token: sonyinteractiveentertainmentglobal
+
+  - name: Groww
+    greenhouse_token: groww

@@ -2,8 +2,8 @@ settings:
   dry_run: true                    # CRITICAL: set to false to actually submit applications
   matches_dir: data/matches
   applied_dir: data/applied
-  runs_dir: data/runs
-  resume_path: data/Udayan_Resume.pdf
+  runs_dir: data/scraped
+  resume_path: data/resume_projects/Udayan_Resume.pdf
   headless: false                  # set to false to watch the browser while debugging
   inter_job_delay_s: 10            # seconds to wait between applications
   max_steps: 40                    # max browser-use agent steps per job

@@ -1,4 +1,0 @@
-1. Update scrapper companies
-2. Flow: Scrapper -> Matcher -> Tuner -> Matcher score
-3. Complete orchestration of the above flow -> actions + openclaw if needed
-4. Update projects.md

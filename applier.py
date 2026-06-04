@@ -1,5 +1,5 @@
 """
-Configure config/applier.yaml and run the matcher first, then:
+Configure config/applier.yaml and run the tuner first, then:
     python applier.py                          # applies from latest matches run (dry_run from config)
     python applier.py --run-id <run_id>        # use a specific matches run
     python applier.py --dry-run                # override config — never submits

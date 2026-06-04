@@ -19,6 +19,7 @@ class ScraperSettings(BaseModel):
     request_timeout_s: float = 30.0
     retry_attempts: int = 3
     max_age_hours: Optional[int] = None  # None = fetch all jobs regardless of age
+    location_filter: list[str] = []      # empty = no filter; substring match against location + offices
 
 
 class AppConfig(BaseModel):
@@ -30,7 +31,7 @@ class AppConfig(BaseModel):
         return [c for c in self.companies if c.greenhouse_token]
 
 
-def load_config(path: str | Path = "config/companies.yaml") -> AppConfig:
+def load_config(path: str | Path = "config/scraper.yaml") -> AppConfig:
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     return AppConfig(
         settings=ScraperSettings(**raw.get("settings", {})),

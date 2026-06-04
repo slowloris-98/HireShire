@@ -25,6 +25,7 @@ from rich.logging import RichHandler
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from hireshire.matcher.scorer import MatchResult
 from hireshire.models.job import Job, Location
 from hireshire.tuner.config import load_tuner_config
 from hireshire.tuner.evaluator import ResumeEvaluator, make_evaluator_backend
@@ -34,11 +35,6 @@ from hireshire.tuner.store import TuneStore
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.WARNING,
-    handlers=[RichHandler(show_path=False, rich_tracebacks=True)],
-)
-logging.getLogger("hireshire").setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 console = Console()
 
@@ -49,10 +45,16 @@ STATUS_STYLE = {
 }
 
 
+class _NoopProgress:
+    def update(self, *a, **kw): pass
+    def advance(self, *a, **kw): pass
+    def add_task(self, *a, **kw): return 0
+    def __enter__(self): return self
+    def __exit__(self, *a): pass
+
+
 def _make_standalone_job(jd_path: Path, title: str, company: str) -> Job:
-    """Build a synthetic Job from a plain-text job description file."""
     now = datetime.now(timezone.utc)
-    # Derive a filesystem-safe job_id from the filename
     job_id = re.sub(r"[^a-zA-Z0-9_-]", "_", jd_path.stem)[:64]
     return Job(
         source="manual",
@@ -61,27 +63,104 @@ def _make_standalone_job(jd_path: Path, title: str, company: str) -> Job:
         title=title,
         location=Location(name="N/A"),
         absolute_url="https://placeholder.local",  # type: ignore[arg-type]
-        updated_at=now,
-        scraped_at=now,
+        updated_at=datetime.now(timezone.utc),
+        scraped_at=datetime.now(timezone.utc),
         content_text=jd_path.read_text(encoding="utf-8"),
     )
 
 
-async def main() -> None:
+async def _process_job(
+    job: Job,
+    store: TuneStore,
+    evaluator: ResumeEvaluator,
+    optimizer: ResumeOptimizer,
+    resume_tex: str,
+    projects_text: str,
+    settings,
+    force: bool = False,
+    quiet: bool = False,
+) -> str:
+    """Run the two-pass tune for one job. Returns 'tuned', 'skipped', or 'error'."""
+    if not force and store.is_done(job.job_id):
+        logger.info("Skipping already-tuned job %s", job.job_id)
+        store.record_skip()
+        return "skipped"
+
+    # Pass 1: Recruiter evaluation
+    critique = await evaluator.evaluate(job, resume_tex)
+    if critique is None:
+        store.record_error()
+        return "error"
+
+    if not critique.job_id:
+        critique = critique.model_copy(update={"job_id": job.job_id})
+
+    # Pass 2: Resume optimization
+    optimized_tex = await optimizer.optimize(
+        job=job,
+        resume_tex=resume_tex,
+        critique=critique,
+        projects_text=projects_text,
+    )
+    if optimized_tex is None:
+        store.record_error()
+        return "error"
+
+    job_dir = store.save_job(
+        job_id=job.job_id,
+        job_description=job.content_text or "",
+        critique=critique,
+        optimized_tex=optimized_tex,
+    )
+
+    # Compile + trim retry loop
+    MAX_TRIM_RETRIES = 2
+    pages = store.compile_pdf(job_dir)
+    for attempt in range(MAX_TRIM_RETRIES):
+        if pages <= 1:
+            break
+        logger.info(
+            "Resume for %s is %d pages; trimming (attempt %d/%d)",
+            job.job_id, pages, attempt + 1, MAX_TRIM_RETRIES,
+        )
+        trimmed = await optimizer.trim_to_one_page(optimized_tex, pages)
+        if trimmed is None:
+            break
+        optimized_tex = trimmed
+        store.update_tex(job_dir, optimized_tex)
+        pages = store.compile_pdf(job_dir)
+
+    if pages > 1 and not quiet:
+        console.print(
+            f"[yellow]Warning: {job.job_id} is {pages} page(s) after "
+            f"{MAX_TRIM_RETRIES} trim attempt(s)[/yellow]"
+        )
+
+    return "tuned"
+
+
+async def main(
+    in_queue: asyncio.Queue | None = None,
+    out_queue: asyncio.Queue | None = None,
+    quiet: bool = False,
+) -> None:
+    if not quiet:
+        logging.basicConfig(
+            level=logging.WARNING,
+            handlers=[RichHandler(show_path=False, rich_tracebacks=True)],
+        )
+        logging.getLogger("hireshire").setLevel(logging.INFO)
+
+    # Parse args — use empty list in queue mode to avoid consuming orchestrator's sys.argv
     parser = argparse.ArgumentParser(description="HireShire Tuner — two-pass resume optimizer")
-    # Pipeline mode args
     parser.add_argument("--run-id", help="Specific matches run ID to tune from (pipeline mode)")
     parser.add_argument("--job-id", help="Tune a single job only (pipeline mode)")
     parser.add_argument("--force", action="store_true", help="Re-tune already-processed jobs")
-    # Standalone mode args
-    parser.add_argument("--jd-file", metavar="PATH", help="Path to a plain-text job description (enables standalone mode)")
-    parser.add_argument("--title", default="Job", help="Job title (standalone mode, default: 'Job')")
-    parser.add_argument("--company", default="Manual", help="Company name (standalone mode, default: 'Manual')")
-    # Shared override
+    parser.add_argument("--jd-file", metavar="PATH", help="Path to a plain-text job description (standalone mode)")
+    parser.add_argument("--title", default="Job", help="Job title (standalone mode)")
+    parser.add_argument("--company", default="Manual", help="Company name (standalone mode)")
     parser.add_argument("--resume-tex", metavar="PATH", help="Override resume LaTeX source path")
-    args = parser.parse_args()
-
-    standalone = args.jd_file is not None
+    args = parser.parse_args([] if in_queue is not None else None)
 
     config = load_tuner_config("config/tuner.yaml")
     settings = config.settings
@@ -92,76 +171,43 @@ async def main() -> None:
     opt_provider = settings.optimizer_provider or default_provider
     opt_model = settings.optimizer_model or settings.model
 
-    mode_label = "[cyan]standalone[/cyan]" if standalone else "[cyan]pipeline[/cyan]"
-    console.print(f"[bold]HireShire Tuner[/bold] ({mode_label})")
-    console.print(f"  Evaluator : [bold]{eval_provider}/{eval_model}[/bold]")
-    console.print(f"  Optimizer : [bold]{opt_provider}/{opt_model}[/bold]")
+    if not quiet:
+        mode_label = "[cyan]queue[/cyan]" if in_queue is not None else (
+            "[cyan]standalone[/cyan]" if args.jd_file else "[cyan]pipeline[/cyan]"
+        )
+        console.print(f"[bold]HireShire Tuner[/bold] ({mode_label})")
+        console.print(f"  Evaluator : [bold]{eval_provider}/{eval_model}[/bold]")
+        console.print(f"  Optimizer : [bold]{opt_provider}/{opt_model}[/bold]")
 
-    # --- Load LaTeX source (used by both passes) ---
+    # --- Load LaTeX source ---
     tex_path = Path(args.resume_tex) if args.resume_tex else Path(settings.resume_tex_path)
     if not tex_path.exists():
-        console.print(
-            f"[red]LaTeX source not found: {tex_path}\n"
-            f"Provide it via --resume-tex or set resume_tex_path in config/tuner.yaml.[/red]"
-        )
+        if not quiet:
+            console.print(
+                f"[red]LaTeX source not found: {tex_path}\n"
+                f"Provide it via --resume-tex or set resume_tex_path in config/tuner.yaml.[/red]"
+            )
         return
     resume_tex = tex_path.read_text(encoding="utf-8")
-    console.print(
-        f"Resume (LaTeX) loaded: [green]{tex_path}[/green] ({len(resume_tex)} chars)"
-    )
+    if not quiet:
+        console.print(f"Resume (LaTeX) loaded: [green]{tex_path}[/green] ({len(resume_tex)} chars)")
 
     # --- Load projects file (optional) ---
     projects_path = Path(settings.projects_path)
     if projects_path.exists():
         projects_text = projects_path.read_text(encoding="utf-8")
-        console.print(
-            f"Projects file loaded: [green]{settings.projects_path}[/green] "
-            f"({len(projects_text)} chars)"
-        )
+        if not quiet:
+            console.print(
+                f"Projects file loaded: [green]{settings.projects_path}[/green] "
+                f"({len(projects_text)} chars)"
+            )
     else:
         projects_text = ""
-        console.print(
-            f"[yellow]Projects file not found: {settings.projects_path} — "
-            "optimizer will work without additional projects pool.[/yellow]"
-        )
-
-    # --- Build job list ---
-    if standalone:
-        jd_path = Path(args.jd_file)
-        if not jd_path.exists():
-            console.print(f"[red]Job description file not found: {jd_path}[/red]")
-            return
-        job = _make_standalone_job(jd_path, title=args.title, company=args.company)
-        # Wrap in same (match_result, job) tuple shape the loop expects; match_result unused
-        jobs = [(None, job)]
-        source_run_id = "standalone"
-        console.print(
-            f"Standalone job: [bold]{job.title}[/bold] @ [cyan]{job.board_token}[/cyan] "
-            f"({len(job.content_text or '')} chars)\n"
-        )
-    else:
-        raw_jobs = load_shortlisted(
-            matches_dir=Path(settings.matches_dir),
-            runs_dir=Path(settings.runs_dir),
-            run_id=args.run_id,
-        )
-        if not raw_jobs:
+        if not quiet:
             console.print(
-                "[yellow]No shortlisted jobs found. Run python matcher.py first, "
-                "or use --jd-file for standalone mode.[/yellow]"
+                f"[yellow]Projects file not found: {settings.projects_path} — "
+                "optimizer will work without additional projects pool.[/yellow]"
             )
-            return
-        if args.job_id:
-            raw_jobs = [(mr, j) for mr, j in raw_jobs if j.job_id == args.job_id]
-            if not raw_jobs:
-                console.print(f"[red]Job ID '{args.job_id}' not found in shortlisted jobs.[/red]")
-                return
-        jobs = raw_jobs
-        source_run_id = jobs[0][0].source_run_id
-        console.print(
-            f"Tuning [bold]{len(jobs)}[/bold] job(s) "
-            f"from matches run [cyan]{source_run_id}[/cyan]\n"
-        )
 
     # --- Set up store and LLM backends ---
     run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
@@ -180,82 +226,148 @@ async def main() -> None:
 
     summary_rows: list[tuple[str, str, str]] = []
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        console=console,
-    ) as progress:
+    # =========================================================
+    # Queue mode: consume (MatchResult, Job) pairs from in_queue
+    # =========================================================
+    if in_queue is not None:
+        source_run_id = "pipeline"
+        try:
+            while True:
+                item = await in_queue.get()
+                if item is None:
+                    break
+                match_result, job = item
+                if isinstance(match_result, MatchResult):
+                    source_run_id = match_result.source_run_id
+                logger.info(
+                    "Tuning job %s/%s (%s)",
+                    job.board_token, job.job_id, job.title[:50],
+                )
+                status = await _process_job(
+                    job=job,
+                    store=store,
+                    evaluator=evaluator,
+                    optimizer=optimizer,
+                    resume_tex=resume_tex,
+                    projects_text=projects_text,
+                    settings=settings,
+                    force=False,
+                    quiet=quiet,
+                )
+                summary_rows.append((status, job.title, job.board_token))
+                if status == "tuned" and out_queue is not None:
+                    pdf_path = store.run_dir / job.job_id / "Udayan_Atreya_Resume.pdf"
+                    await out_queue.put({
+                        "job_id": job.job_id,
+                        "title": job.title,
+                        "company": job.board_token,
+                        "job_url": str(match_result.absolute_url) if isinstance(match_result, MatchResult) else "",
+                        "relevance_score": match_result.relevance_score if isinstance(match_result, MatchResult) else None,
+                        "resume_tex": str(store.run_dir / job.job_id / "Udayan_Atreya_Resume.tex"),
+                        "resume_pdf": str(pdf_path) if pdf_path.exists() else None,
+                        "tuner_run_id": run_id,
+                        "processed_at": datetime.now(timezone.utc).isoformat(),
+                    })
+                if settings.request_interval_s > 0:
+                    await asyncio.sleep(settings.request_interval_s)
+        except Exception:
+            logger.exception("Tuner queue loop failed")
+        finally:
+            if out_queue is not None:
+                await out_queue.put(None)
+            store.save_manifest(
+                started_at=started_at,
+                source_run_id=source_run_id,
+                model=f"{eval_provider}/{eval_model} + {opt_provider}/{opt_model}",
+                provider=f"{eval_provider} + {opt_provider}",
+                total_loaded=len(summary_rows),
+            )
+            tuned = sum(1 for s, _, _ in summary_rows if s == "tuned")
+            logger.info(
+                "Tuner done: %d tuned, %d skipped, %d error(s) → %s/%s/",
+                tuned,
+                sum(1 for s, _, _ in summary_rows if s == "skipped"),
+                sum(1 for s, _, _ in summary_rows if s == "error"),
+                settings.tuned_dir, run_id,
+            )
+        return
+
+    # =========================================================
+    # Standalone / pipeline-from-file mode (existing behaviour)
+    # =========================================================
+    standalone = args.jd_file is not None
+
+    if standalone:
+        jd_path = Path(args.jd_file)
+        if not jd_path.exists():
+            if not quiet:
+                console.print(f"[red]Job description file not found: {jd_path}[/red]")
+            return
+        job = _make_standalone_job(jd_path, title=args.title, company=args.company)
+        jobs = [(None, job)]
+        source_run_id = "standalone"
+        if not quiet:
+            console.print(
+                f"Standalone job: [bold]{job.title}[/bold] @ [cyan]{job.board_token}[/cyan] "
+                f"({len(job.content_text or '')} chars)\n"
+            )
+    else:
+        raw_jobs = load_shortlisted(
+            matches_dir=Path(settings.matches_dir),
+            runs_dir=Path(settings.runs_dir),
+            run_id=args.run_id,
+        )
+        if not raw_jobs:
+            if not quiet:
+                console.print(
+                    "[yellow]No shortlisted jobs found. Run python matcher.py first, "
+                    "or use --jd-file for standalone mode.[/yellow]"
+                )
+            return
+        if args.job_id:
+            raw_jobs = [(mr, j) for mr, j in raw_jobs if j.job_id == args.job_id]
+            if not raw_jobs:
+                if not quiet:
+                    console.print(f"[red]Job ID '{args.job_id}' not found in shortlisted jobs.[/red]")
+                return
+        jobs = raw_jobs
+        source_run_id = jobs[0][0].source_run_id
+        if not quiet:
+            console.print(
+                f"Tuning [bold]{len(jobs)}[/bold] job(s) "
+                f"from matches run [cyan]{source_run_id}[/cyan]\n"
+            )
+
+    prog_ctx = (
+        Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            console=console,
+        )
+        if not quiet
+        else _NoopProgress()
+    )
+
+    with prog_ctx as progress:
         task_bar = progress.add_task("Tuning resumes...", total=len(jobs))
 
         for match_result, job in jobs:
-            progress.update(
-                task_bar,
-                description=f"[cyan]{job.board_token}[/cyan] / {job.title[:45]}",
-            )
+            progress.update(task_bar, description=f"[cyan]{job.board_token}[/cyan] / {job.title[:45]}")
 
-            if not args.force and store.is_done(job.job_id):
-                logger.info("Skipping already-tuned job %s", job.job_id)
-                store.record_skip()
-                summary_rows.append(("skipped", job.title, job.board_token))
-                progress.advance(task_bar)
-                continue
-
-            # Pass 1: Recruiter evaluation
-            critique = await evaluator.evaluate(job, resume_tex)
-            if critique is None:
-                store.record_error()
-                summary_rows.append(("error", job.title, job.board_token))
-                progress.advance(task_bar)
-                continue
-
-            if not critique.job_id:
-                critique = critique.model_copy(update={"job_id": job.job_id})
-
-            # Pass 2: Resume optimization
-            optimized_tex = await optimizer.optimize(
+            status = await _process_job(
                 job=job,
+                store=store,
+                evaluator=evaluator,
+                optimizer=optimizer,
                 resume_tex=resume_tex,
-                critique=critique,
                 projects_text=projects_text,
+                settings=settings,
+                force=args.force,
+                quiet=quiet,
             )
-            if optimized_tex is None:
-                store.record_error()
-                summary_rows.append(("error", job.title, job.board_token))
-                progress.advance(task_bar)
-                continue
-
-            job_dir = store.save_job(
-                job_id=job.job_id,
-                job_description=job.content_text or "",
-                critique=critique,
-                optimized_tex=optimized_tex,
-            )
-
-            # Compile and trim loop — retry up to 2 times if > 1 page
-            MAX_TRIM_RETRIES = 2
-            pages = store.compile_pdf(job_dir)
-            for attempt in range(MAX_TRIM_RETRIES):
-                if pages <= 1:
-                    break
-                logger.info(
-                    "Resume for %s is %d pages; trimming (attempt %d/%d)",
-                    job.job_id, pages, attempt + 1, MAX_TRIM_RETRIES,
-                )
-                trimmed = await optimizer.trim_to_one_page(optimized_tex, pages)
-                if trimmed is None:
-                    break
-                optimized_tex = trimmed
-                store.update_tex(job_dir, optimized_tex)
-                pages = store.compile_pdf(job_dir)
-            if pages > 1:
-                console.print(
-                    f"[yellow]Warning: {job.job_id} is {pages} page(s) after "
-                    f"{MAX_TRIM_RETRIES} trim attempt(s)[/yellow]"
-                )
-
-            summary_rows.append(("tuned", job.title, job.board_token))
+            summary_rows.append((status, job.title, job.board_token))
             progress.advance(task_bar)
 
             if settings.request_interval_s > 0 and (match_result, job) != jobs[-1]:
@@ -269,23 +381,23 @@ async def main() -> None:
         total_loaded=len(jobs),
     )
 
-    console.print()
-    table = Table(title="Tuning Summary", show_lines=True)
-    table.add_column("Status", width=10)
-    table.add_column("Title", style="bold")
-    table.add_column("Company", style="cyan")
+    if not quiet:
+        console.print()
+        table = Table(title="Tuning Summary", show_lines=True)
+        table.add_column("Status", width=10)
+        table.add_column("Title", style="bold")
+        table.add_column("Company", style="cyan")
+        for status, title, company in summary_rows:
+            table.add_row(STATUS_STYLE.get(status, status), title, company)
+        console.print(table)
 
-    for status, title, company in summary_rows:
-        table.add_row(STATUS_STYLE.get(status, status), title, company)
-    console.print(table)
-
-    tuned = sum(1 for s, _, _ in summary_rows if s == "tuned")
-    skipped = sum(1 for s, _, _ in summary_rows if s == "skipped")
-    errors = sum(1 for s, _, _ in summary_rows if s == "error")
-    console.print(
-        f"\n[bold]{tuned} tuned[/bold], {skipped} skipped, {errors} error(s) "
-        f"→ [cyan]{settings.tuned_dir}/{run_id}/[/cyan]"
-    )
+        tuned = sum(1 for s, _, _ in summary_rows if s == "tuned")
+        skipped = sum(1 for s, _, _ in summary_rows if s == "skipped")
+        errors = sum(1 for s, _, _ in summary_rows if s == "error")
+        console.print(
+            f"\n[bold]{tuned} tuned[/bold], {skipped} skipped, {errors} error(s) "
+            f"→ [cyan]{settings.tuned_dir}/{run_id}/[/cyan]"
+        )
 
 
 if __name__ == "__main__":

@@ -17,6 +17,21 @@ class MatchStore:
         self.run_id = run_id
         self._progress_path = self.run_dir / "progress.jsonl"
 
+    def load_progress(self) -> list[MatchResult]:
+        """Return results from a previous partial run (progress.jsonl present, no manifest)."""
+        if not self._progress_path.exists() or (self.run_dir / "manifest.json").exists():
+            return []
+        results: list[MatchResult] = []
+        with self._progress_path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        results.append(MatchResult.model_validate_json(line))
+                    except Exception:
+                        logger.warning("Skipping malformed progress line: %s", line[:80])
+        return results
+
     def append_result(self, result: MatchResult) -> None:
         """Write one result immediately — survives a mid-run crash."""
         with self._progress_path.open("a", encoding="utf-8") as f:

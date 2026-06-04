@@ -276,7 +276,7 @@ class JobScorer:
         self._settings = settings
         self._backend = backend
 
-    async def score(self, job: Job, resume_text: str, run_id: str) -> MatchResult:
+    async def score(self, job: Job, resume_text: str, run_id: str, projects_text: str = "") -> MatchResult:
         base = MatchResult(
             job_id=job.job_id,
             board_token=job.board_token,
@@ -295,8 +295,12 @@ class JobScorer:
         if not job.content_text or not job.content_text.strip():
             return base.model_copy(update={"skipped": True, "skip_reason": "no_content_text"})
 
+        candidate_profile = resume_text
+        if projects_text:
+            candidate_profile += f"\n\n## Additional Projects\n{projects_text}"
+
         prompt = (
-            f"## Candidate Resume\n{resume_text}\n\n"
+            f"## Candidate Resume\n{candidate_profile}\n\n"
             f"## Job: {job.title} at {job.board_token}\n"
             f"{job.content_text[:self._settings.max_content_chars]}\n\n"
             "Score how well this candidate matches this job. Be specific and evidence-based."

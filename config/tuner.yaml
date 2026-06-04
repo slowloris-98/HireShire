@@ -1,8 +1,8 @@
 settings:
-  resume_tex_path: data/Udayan_Resume.tex   # Single resume input — used by both passes
-  projects_path: data/projects.md          # Additional projects pool (optional)
+  resume_tex_path: data/resume_projects/Udayan_Resume.tex   # Single resume input — used by both passes
+  projects_path: data/resume_projects/projects.md          # Additional projects pool (optional)
   matches_dir: data/matches
-  runs_dir: data/runs
+  runs_dir: data/scraped
   tuned_dir: data/tuned
 
   # Shared fallback model (used when per-pass overrides below are not set)
