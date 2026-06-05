@@ -2,6 +2,7 @@ settings:
   concurrency: 10
   request_timeout_s: 30
   retry_attempts: 3
+  company_timeout_s: 300  # max seconds to wait for a single company before skipping it
   max_age_hours: 12  # only keep jobs updated in the last N hours; remove this line to fetch all
   location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
     - "united states"
@@ -86,3 +87,43 @@ companies:
 
   - name: Groww
     greenhouse_token: groww
+
+  - name: Spotify
+    lever_token: spotify
+
+  - name: Zoox
+    lever_token: zoox
+
+  - name: Coupa
+    lever_token: coupa
+
+  - name: Aircall
+    lever_token: aircall
+
+  - name: Celerion
+    lever_token: celerion
+  
+  - name: KPMG
+    lever_token: kpmg
+
+  - name: Lever
+    lever_token: lever
+
+  - name: Plaid
+    lever_token: plaid
+  
+  - name: Hottopic
+    lever_token: hottopic
+
+  - name: Insomnia Cookies
+    lever_token: insomniacookies
+
+  - name: Dun & Bradstreet
+    lever_token: dnb
+
+  - name: Samba TV
+    lever_token: sambatv
+
+
+
+

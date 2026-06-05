@@ -18,6 +18,7 @@ class ScraperSettings(BaseModel):
     concurrency: int = 10
     request_timeout_s: float = 30.0
     retry_attempts: int = 3
+    company_timeout_s: float = 120.0
     max_age_hours: Optional[int] = None  # None = fetch all jobs regardless of age
     location_filter: list[str] = []      # empty = no filter; substring match against location + offices
 
@@ -29,6 +30,10 @@ class AppConfig(BaseModel):
     @property
     def greenhouse_companies(self) -> list[CompanyConfig]:
         return [c for c in self.companies if c.greenhouse_token]
+
+    @property
+    def lever_companies(self) -> list[CompanyConfig]:
+        return [c for c in self.companies if c.lever_token]
 
 
 def load_config(path: str | Path = "config/scraper.yaml") -> AppConfig:

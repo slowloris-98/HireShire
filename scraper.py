@@ -15,6 +15,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn
 from hireshire.config import load_config
 from hireshire.http_client import build_client
 from hireshire.scrapers.greenhouse import GreenhouseScraper
+from hireshire.scrapers.lever import LeverScraper
 from hireshire.storage.json_store import RunStore
 
 logger = logging.getLogger(__name__)
@@ -47,14 +48,16 @@ async def main(
             level=logging.WARNING,
             handlers=[RichHandler(show_path=False, rich_tracebacks=True)],
         )
+        logging.getLogger("hireshire").setLevel(logging.INFO)
 
     config = load_config("config/scraper.yaml")
     settings = config.settings
     greenhouse_companies = config.greenhouse_companies
+    lever_companies = config.lever_companies
 
-    if not greenhouse_companies:
+    if not greenhouse_companies and not lever_companies:
         if not quiet:
-            console.print("[yellow]No companies with greenhouse_token found in config.[/yellow]")
+            console.print("[yellow]No companies configured. Add greenhouse_token or lever_token entries in config/scraper.yaml.[/yellow]")
         return
 
     if run_id is None:
@@ -79,17 +82,22 @@ async def main(
             )
         if location_terms:
             console.print(f"Filtering by location: [cyan]{', '.join(settings.location_filter)}[/cyan]")
-        console.print(
-            f"Fetching from [bold]{len(greenhouse_companies)}[/bold] companies via Greenhouse API\n"
-        )
+        sources = []
+        if greenhouse_companies:
+            sources.append(f"[bold]{len(greenhouse_companies)}[/bold] via Greenhouse")
+        if lever_companies:
+            sources.append(f"[bold]{len(lever_companies)}[/bold] via Lever")
+        console.print(f"Fetching from {' + '.join(sources)}\n")
 
     sem = asyncio.Semaphore(settings.concurrency)
     results = []
 
     try:
         async with build_client(settings.request_timeout_s) as client:
-            scraper_obj = GreenhouseScraper(client, sem, settings.retry_attempts)
+            greenhouse_scraper = GreenhouseScraper(client, sem, settings.retry_attempts)
+            lever_scraper = LeverScraper(client, sem, settings.retry_attempts, cutoff=cutoff)
 
+            total_companies = len(greenhouse_companies) + len(lever_companies)
             prog_ctx = (
                 Progress(
                     SpinnerColumn(),
@@ -103,13 +111,15 @@ async def main(
             )
 
             with prog_ctx as progress:
-                task = progress.add_task("Scraping companies...", total=len(greenhouse_companies))
+                task = progress.add_task("Scraping companies...", total=total_companies)
 
-                async def scrape_one(company):
-                    token = company.greenhouse_token
+                async def scrape_one(company, scraper_instance, token):
                     progress.update(task, description=f"[cyan]{company.name}[/cyan]")
                     try:
-                        jobs = await scraper_obj.fetch_all(token)
+                        jobs = await asyncio.wait_for(
+                            scraper_instance.fetch_all(token),
+                            timeout=settings.company_timeout_s,
+                        )
                         if cutoff:
                             jobs = [j for j in jobs if j.updated_at >= cutoff]
                         if location_terms:
@@ -119,6 +129,12 @@ async def main(
                             await out_queue.put((token, jobs))
                         logger.info("Scraped %s: %d jobs", company.name, len(jobs))
                         return company.name, len(jobs), None
+                    except asyncio.TimeoutError:
+                        logger.warning("Scrape timed out after %ss: %s — skipping", settings.company_timeout_s, company.name)
+                        store.record_error(token, "timeout", f"exceeded {settings.company_timeout_s}s")
+                        if out_queue is not None:
+                            await out_queue.put((token, []))
+                        return company.name, 0, f"timeout after {settings.company_timeout_s}s"
                     except Exception as exc:
                         store.record_error(token, "error", str(exc))
                         logger.exception("Failed to scrape %s", company.name)
@@ -126,7 +142,9 @@ async def main(
                     finally:
                         progress.advance(task)
 
-                results = await asyncio.gather(*[scrape_one(c) for c in greenhouse_companies])
+                gh_tasks = [scrape_one(c, greenhouse_scraper, c.greenhouse_token) for c in greenhouse_companies]
+                lv_tasks = [scrape_one(c, lever_scraper, c.lever_token) for c in lever_companies]
+                results = await asyncio.gather(*gh_tasks, *lv_tasks)
 
         store.save_manifest(started_at)
     finally:
