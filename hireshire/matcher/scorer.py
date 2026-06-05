@@ -12,19 +12,21 @@ from tenacity import retry, retry_if_exception, stop_never
 
 from hireshire.matcher.config import MatcherSettings
 from hireshire.models.job import Job
+from hireshire.matcher.prompts import SCORER_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = (
-    "You are an expert technical recruiter evaluating job-candidate fit. "
-    "Given a resume and a job description, return a JSON object with your assessment. "
-    "Be specific and evidence-based. Base years_experience_required on what the job explicitly states."
-)
+SYSTEM_PROMPT = SCORER_SYSTEM_PROMPT
 
 
 class ScoringSchema(BaseModel):
-    relevance_score: int
     years_experience_required: Optional[float] = None
+    core_skills_score: int
+    core_skills_rationale: str
+    experience_score: int
+    experience_rationale: str
+    education_bonus_score: int
+    education_rationale: str
     match_reasons: list[str]
     disqualifiers: list[str]
     recommend: bool
@@ -39,6 +41,12 @@ class MatchResult(BaseModel):
 
     relevance_score: int
     years_experience_required: Optional[float] = None
+    core_skills_score: int = 0
+    core_skills_rationale: str = ""
+    experience_score: int = 0
+    experience_rationale: str = ""
+    education_bonus_score: int = 0
+    education_rationale: str = ""
     match_reasons: list[str]
     disqualifiers: list[str]
     recommend: bool
@@ -303,7 +311,7 @@ class JobScorer:
             f"## Candidate Resume\n{candidate_profile}\n\n"
             f"## Job: {job.title} at {job.board_token}\n"
             f"{job.content_text[:self._settings.max_content_chars]}\n\n"
-            "Score how well this candidate matches this job. Be specific and evidence-based."
+            #"Score how well this candidate matches this job. Be specific and evidence-based."
         )
 
         try:
@@ -312,9 +320,17 @@ class JobScorer:
             logger.warning("LLM call failed for job %s/%s: %s", job.board_token, job.job_id, exc)
             return base.model_copy(update={"skipped": True, "skip_reason": "api_error"})
 
+        relevance_score = min(100, result.core_skills_score + result.experience_score + result.education_bonus_score)
+
         return base.model_copy(update={
-            "relevance_score": result.relevance_score,
+            "relevance_score": relevance_score,
             "years_experience_required": result.years_experience_required,
+            "core_skills_score": result.core_skills_score,
+            "core_skills_rationale": result.core_skills_rationale,
+            "experience_score": result.experience_score,
+            "experience_rationale": result.experience_rationale,
+            "education_bonus_score": result.education_bonus_score,
+            "education_rationale": result.education_rationale,
             "match_reasons": result.match_reasons,
             "disqualifiers": result.disqualifiers,
             "recommend": result.recommend,
