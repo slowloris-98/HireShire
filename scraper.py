@@ -14,6 +14,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn
 
 from hireshire.config import load_config
 from hireshire.http_client import build_client
+from hireshire.scrapers.ashby import AshbyScraper
 from hireshire.scrapers.greenhouse import GreenhouseScraper
 from hireshire.scrapers.lever import LeverScraper
 from hireshire.storage.json_store import RunStore
@@ -54,10 +55,11 @@ async def main(
     settings = config.settings
     greenhouse_companies = config.greenhouse_companies
     lever_companies = config.lever_companies
+    ashby_companies = config.ashby_companies
 
-    if not greenhouse_companies and not lever_companies:
+    if not greenhouse_companies and not lever_companies and not ashby_companies:
         if not quiet:
-            console.print("[yellow]No companies configured. Add greenhouse_token or lever_token entries in config/scraper.yaml.[/yellow]")
+            console.print("[yellow]No companies configured. Add greenhouse_token, lever_token, or ashby_token entries in config/scraper.yaml.[/yellow]")
         return
 
     if run_id is None:
@@ -87,6 +89,8 @@ async def main(
             sources.append(f"[bold]{len(greenhouse_companies)}[/bold] via Greenhouse")
         if lever_companies:
             sources.append(f"[bold]{len(lever_companies)}[/bold] via Lever")
+        if ashby_companies:
+            sources.append(f"[bold]{len(ashby_companies)}[/bold] via Ashby")
         console.print(f"Fetching from {' + '.join(sources)}\n")
 
     sem = asyncio.Semaphore(settings.concurrency)
@@ -96,8 +100,9 @@ async def main(
         async with build_client(settings.request_timeout_s) as client:
             greenhouse_scraper = GreenhouseScraper(client, sem, settings.retry_attempts)
             lever_scraper = LeverScraper(client, sem, settings.retry_attempts, cutoff=cutoff)
+            ashby_scraper = AshbyScraper(client, sem, settings.retry_attempts)
 
-            total_companies = len(greenhouse_companies) + len(lever_companies)
+            total_companies = len(greenhouse_companies) + len(lever_companies) + len(ashby_companies)
             prog_ctx = (
                 Progress(
                     SpinnerColumn(),
@@ -144,7 +149,8 @@ async def main(
 
                 gh_tasks = [scrape_one(c, greenhouse_scraper, c.greenhouse_token) for c in greenhouse_companies]
                 lv_tasks = [scrape_one(c, lever_scraper, c.lever_token) for c in lever_companies]
-                results = await asyncio.gather(*gh_tasks, *lv_tasks)
+                as_tasks = [scrape_one(c, ashby_scraper, c.ashby_token) for c in ashby_companies]
+                results = await asyncio.gather(*gh_tasks, *lv_tasks, *as_tasks)
 
         store.save_manifest(started_at)
     finally:

@@ -1,5 +1,6 @@
-1. Introduce Lever
-2. Introduce Ashby
+- Add more valid companies from greenhouse, ashby and lever.
+- Increase the thereshold to 75/80 for higher match
+
 
 allow to mold the work ex role according to the requirement as the work ex revolves around automation, devops, cicd, security automation, code scans, dev tools.
 
@@ -10,5 +11,3 @@ refine the tuner:
 look for a cheap option for tuning
 
 once pipeline is finished the final pipeline json / csv should be accesible from my phone
-
-correct tuner prompt

@@ -10,6 +10,36 @@ settings:
     - "india"
 
 companies:
+  - name: Ashby
+    ashby_token: ashby
+  
+  - name: Linear
+    ashby_token: linear
+  
+  - name: Deel
+    ashby_token: deel
+  
+  - name: Clipboard Health
+    ashby_token: clipboard
+  
+  - name: PermitFlow
+    ashby_token: permitflow
+  
+  - name: PermitFlow
+    ashby_token: permitflow
+  
+  - name: Teamworks
+    ashby_token: teamworks
+
+  - name: Notable
+    ashby_token: notable
+
+  - name: Inngest
+    ashby_token: inngest
+  
+  - name: Prompt
+    ashby_token: prompt
+
   - name: Figma
     greenhouse_token: figma
 

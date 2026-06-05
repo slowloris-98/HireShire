@@ -11,6 +11,7 @@ class CompanyConfig(BaseModel):
     name: str
     greenhouse_token: Optional[str] = None
     lever_token: Optional[str] = None
+    ashby_token: Optional[str] = None
     tags: list[str] = []
 
 
@@ -34,6 +35,10 @@ class AppConfig(BaseModel):
     @property
     def lever_companies(self) -> list[CompanyConfig]:
         return [c for c in self.companies if c.lever_token]
+
+    @property
+    def ashby_companies(self) -> list[CompanyConfig]:
+        return [c for c in self.companies if c.ashby_token]
 
 
 def load_config(path: str | Path = "config/scraper.yaml") -> AppConfig:
