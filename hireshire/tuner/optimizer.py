@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
 import shutil
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
+
+from pydantic import BaseModel
 
 from tenacity import retry, retry_if_exception, stop_never
 
 from hireshire.models.job import Job
 from hireshire.tuner.config import TunerSettings
 from hireshire.tuner.evaluator import EvaluatorResult
-from hireshire.tuner.prompts import OPTIMIZER_SYSTEM_PROMPT
+from hireshire.tuner.prompts import SELECTOR_SYSTEM_PROMPT, TRIMMER_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +146,17 @@ class GeminiOptimizerBackend:
 
 
 # ---------------------------------------------------------------------------
+# OpenAI helper
+# ---------------------------------------------------------------------------
+
+def _openai_token_limit(model: str, n: int) -> dict:
+    """Return {max_completion_tokens: n} for newer-generation models that dropped max_tokens."""
+    if any(model.startswith(p) for p in ("o1", "o3", "gpt-5")):
+        return {"max_completion_tokens": n}
+    return {"max_tokens": n}
+
+
+# ---------------------------------------------------------------------------
 # OpenAI backend
 # ---------------------------------------------------------------------------
 
@@ -167,7 +182,8 @@ class OpenAIOptimizerBackend:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=4096,
+                response_format={"type": "json_object"},
+                **_openai_token_limit(self._settings.model, 4096),
             )
             if self._settings.request_interval_s > 0:
                 await asyncio.sleep(self._settings.request_interval_s)
@@ -282,25 +298,10 @@ def make_optimizer_backend(
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _extract_preamble(resume_tex: str) -> str:
-    marker = r"\begin{document}"
-    idx = resume_tex.find(marker)
-    return resume_tex[:idx + len(marker)] if idx != -1 else ""
-
-
-def _extract_links(resume_tex: str) -> list[str]:
-    return re.findall(r'\\href\{([^}]+)\}', resume_tex)
-
-
-def _extract_urls_from_text(text: str) -> list[str]:
-    return re.findall(r'https?://\S+', text)
-
-
 def _strip_fences(text: str) -> str:
     """Remove markdown code fences some models add despite instructions."""
     stripped = text.strip()
     if stripped.startswith("```"):
-        # Drop the opening fence line (e.g. ```latex or ```)
         stripped = stripped.split("\n", 1)[1] if "\n" in stripped else stripped
     if stripped.endswith("```"):
         stripped = stripped.rsplit("```", 1)[0].rstrip()
@@ -311,11 +312,28 @@ def _validate_latex(text: str, job_id: str) -> str:
     cleaned = _strip_fences(text)
     if not cleaned.startswith(("\\", "%")):
         logger.warning(
-            "Optimizer output for job %s may not be valid LaTeX "
+            "Trim output for job %s may not be valid LaTeX "
             "(does not start with \\ or %%). First 100 chars: %r",
             job_id, cleaned[:100],
         )
     return cleaned
+
+
+# ---------------------------------------------------------------------------
+# SelectionResult
+# ---------------------------------------------------------------------------
+
+class SelectionResult(BaseModel):
+    selected_projects: list[str]
+    selected_work: str
+    section_order: list[str] = ["projects", "work"]
+    keyword_adjustments: dict[str, list[str | None]] = {}
+
+
+@dataclass
+class OptimizeResult:
+    tex: str
+    selection: SelectionResult
 
 
 # ---------------------------------------------------------------------------
@@ -330,79 +348,114 @@ class ResumeOptimizer:
     async def optimize(
         self,
         job: Job,
-        resume_tex: str,
         critique: EvaluatorResult,
-        projects_text: str,
-    ) -> str | None:
-        logger.info("Optimizing job %s/%s", job.board_token, job.job_id)
-        prompt = self._build_prompt(job, resume_tex, critique, projects_text)
-        try:
-            raw = await self._backend.call(prompt, OPTIMIZER_SYSTEM_PROMPT)
-            return _validate_latex(raw, job.job_id)
-        except Exception as exc:
-            logger.warning(
-                "Optimizer LLM call failed for job %s/%s: %s",
-                job.board_token, job.job_id, exc,
-            )
+        projects: dict[str, dict],
+        template_path: str,
+    ) -> OptimizeResult | None:
+        logger.info("Selecting projects for job %s/%s", job.board_token, job.job_id)
+        prompt = self._build_selection_prompt(job, critique, projects)
+        MAX_SELECTOR_RETRIES = 3
+        selection = None
+        for attempt in range(MAX_SELECTOR_RETRIES):
+            try:
+                raw = await self._backend.call(prompt, SELECTOR_SYSTEM_PROMPT)
+                selection = self._parse_selection(raw, projects, job.job_id)
+                break
+            except Exception as exc:
+                logger.warning(
+                    "Selector attempt %d/%d failed for job %s/%s: %s",
+                    attempt + 1, MAX_SELECTOR_RETRIES, job.board_token, job.job_id, exc,
+                )
+                if attempt < MAX_SELECTOR_RETRIES - 1:
+                    await asyncio.sleep(2.0)
+        if selection is None:
             return None
 
-    async def trim_to_one_page(self, current_tex: str, pages: int) -> str | None:
-        prompt = (
-            f"The LaTeX resume below compiled to {pages} pages but MUST fit on exactly 1 page.\n"
-            "Apply reductions in this priority order:\n"
-            "1. Remove Coursework lines in Education\n"
-            #"2. Remove the least impactful bullet points from projects or work experience\n"
-            #"3. Shorten or condense verbose bullet text; reword for conciseness while keeping metrics and keywords\n"
-            "4. Slightly reduce \\vspace values if still over (minimum 1pt)\n"
-            "Do NOT change the preamble, margins, font size, or document class.\n"
-            "Do NOT add or remove sections.\n"
-            "Output ONLY the complete LaTeX source.\n\n"
-            f"{current_tex}"
+        from hireshire.tuner.assembler import assemble_resume
+        tex = assemble_resume(
+            template_path=template_path,
+            projects=projects,
+            selected_project_ids=selection.selected_projects,
+            selected_work_id=selection.selected_work,
+            section_order=selection.section_order,
+            keyword_adjustments=selection.keyword_adjustments,
         )
-        try:
-            raw = await self._backend.call(prompt, OPTIMIZER_SYSTEM_PROMPT)
-            return _validate_latex(raw, "trim")
-        except Exception as exc:
-            logger.warning("Trim LLM call failed: %s", exc)
-            return None
+        return OptimizeResult(tex=tex, selection=selection)
 
-    def _build_prompt(
+    def _parse_selection(
+        self, raw: str, projects: dict[str, dict], job_id: str
+    ) -> SelectionResult:
+        cleaned = _strip_fences(raw)
+        data = json.loads(cleaned)
+        result = SelectionResult.model_validate(data)
+        valid_ids = set(projects.keys())
+        if (
+            result.selected_work not in valid_ids
+            or projects.get(result.selected_work, {}).get("type") != "work"
+        ):
+            work_ids = [pid for pid, p in projects.items() if p.get("type") == "work"]
+            result.selected_work = work_ids[0] if work_ids else ""
+            logger.warning(
+                "Selector returned invalid/non-work ID for selected_work on job %s; falling back to %s",
+                job_id, result.selected_work,
+            )
+
+        seen: set[str] = set()
+        clean: list[str] = []
+        for p in result.selected_projects:
+            if (
+                p in valid_ids
+                and projects[p].get("type") != "work"
+                and p not in seen
+                and p != result.selected_work
+            ):
+                seen.add(p)
+                clean.append(p)
+        result.selected_projects = clean
+        return result
+
+    def _build_selection_prompt(
         self,
         job: Job,
-        resume_tex: str,
         critique: EvaluatorResult,
-        projects_text: str,
+        projects: dict[str, dict],
     ) -> str:
         jd = (job.content_text or "")[:self._settings.max_jd_chars]
-        tex = resume_tex[:self._settings.max_tex_chars]
 
-        preamble = _extract_preamble(resume_tex)
-        resume_links = _extract_links(resume_tex)
-        pool_links = _extract_urls_from_text(projects_text) if projects_text else []
-        seen: set[str] = set()
-        all_links: list[str] = []
-        for url in resume_links + pool_links:
-            if url not in seen:
-                seen.add(url)
-                all_links.append(url)
-        links_block = "\n".join(f"- {url}" for url in all_links) if all_links else "(none)"
+        years = critique.years_experience_required
+        num_projects = 2 if (years is not None and years > 3) else 3
+
+        work_lines, project_lines = [], []
+        for pid, p in projects.items():
+            line = f"  - id: {pid} | title: {p.get('title', pid)} | description: {p.get('description', '')}"
+            (work_lines if p.get("type") == "work" else project_lines).append(line)
+        roster = (
+            "WORK ENTRIES:\n" + "\n".join(work_lines)
+            + "\n\nPROJECT ENTRIES:\n" + "\n".join(project_lines)
+        )
+
+        bullet_counts = "\n".join(
+            f"  {pid}: {len(p.get('bullets', []))} bullets"
+            for pid, p in projects.items()
+        )
 
         critique_block = "\n".join([
-            f"**Shortcomings:** {', '.join(critique.shortcomings) or 'none'}",
-            f"**Missing keywords:** {', '.join(critique.missing_keywords) or 'none'}",
-            f"**Experience gaps:** {', '.join(critique.experience_gaps) or 'none'}",
-            f"**Weak sections:** {', '.join(critique.weak_sections) or 'none'}",
-            f"**Overall assessment:** {critique.overall_assessment}",
+            f"Missing keywords: {', '.join(critique.missing_keywords) or 'none'}",
+            f"Experience gaps: {', '.join(critique.experience_gaps) or 'none'}",
+            f"Overall: {critique.overall_assessment}",
         ])
 
+        years_label = str(years) if years is not None else "unknown"
         sections = [
-            f"## PREAMBLE — COPY THIS EXACTLY, UNCHANGED\n{preamble}",
-            f"## LINKS — USE THESE EXACT URLS, DO NOT MODIFY\n{links_block}",
-            f"## Job: {job.title} at {job.board_token} ({job.location.name})",
+            (
+                f"## Job: {job.title} at {job.board_token} ({job.location.name})\n"
+                f"Select exactly {num_projects} projects "
+                f"(detected experience requirement: {years_label} yrs)"
+            ),
             f"### Job Description\n{jd}",
             f"### Recruiter Critique\n{critique_block}",
-            f"### Additional Projects Pool\n{projects_text or '(none provided)'}",
-            f"### Current Resume (LaTeX source)\n{tex}",
-            "Now rewrite the LaTeX resume for this specific job. Output ONLY the LaTeX source.",
+            f"### Available Entries\n{roster}",
+            f"### Bullet Counts (for keyword_adjustments array lengths)\n{bullet_counts}",
         ]
         return "\n\n".join(sections)
+

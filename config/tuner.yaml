@@ -1,18 +1,20 @@
 settings:
-  resume_tex_path: data/resume_projects/Udayan_Resume.tex   # Single resume input — used by both passes
-  projects_path: data/resume_projects/projects.md          # Additional projects pool (optional)
+  resume_tex_path: data/resume_projects/Udayan_Resume.tex         # used by evaluator (Pass 1)
+  resume_template_path: data/resume_projects/resume_template.tex  # used by assembler (Pass 2)
+  projects_bullets_path: data/resume_projects/projects_bullets.yaml  # pre-authored LaTeX bullets
+  projects_path: data/resume_projects/projects.md                 # legacy narrative (no longer used by optimizer)
   matches_dir: data/matches
   runs_dir: data/scraped
   tuned_dir: data/tuned
 
   # Shared fallback model (used when per-pass overrides below are not set)
-  model: gpt-5-nano
+  model: gpt-4o-mini
 
   # Per-pass overrides — leave commented out to use LLM_PROVIDER env var + model above.
   evaluator_provider: openai           # cheap/fast model is fine for critique
   evaluator_model: gpt-5-nano
-  optimizer_provider: claude_code         # claude_code | anthropic | openai | gemini
-  optimizer_model: claude-sonnet-4-6     # passed as --model to claude CLI (or API model name)
+  optimizer_provider: openai        # selector/injector: fast API call returning JSON
+  optimizer_model: gpt-5-nano
 
   max_jd_chars: 12000
   max_tex_chars: 15000

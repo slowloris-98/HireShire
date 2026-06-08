@@ -5,9 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 HireShire is a four-phase automated job search pipeline:
-1. **Scraper** — fetches job listings from the Greenhouse Job Board API
+1. **Scraper** — fetches job listings from Greenhouse, Ashby, and Lever job board APIs
 2. **Matcher** — scores jobs against a resume via LLM (Gemini / OpenAI / Anthropic)
-3. **Tuner** — two-pass LLM resume optimizer (evaluator critique → LaTeX optimizer → PDF compile)
+3. **Tuner** — two-pass resume optimizer (evaluator critique → JSON project selector → code assembler → PDF compile)
 4. **Applier** — fills out and submits job applications via browser automation (Playwright)
 
 Each phase is fully independent: its own entrypoint script, `hireshire/<phase>/` subpackage, `config/<phase>.yaml`, and `data/<phase-output>/` directory.
@@ -64,13 +64,13 @@ Orchestrator  → data/pipeline/<ts>/{pipeline_results.json, pipeline_results.cs
 
 **All four phases** use `asyncio.run(main())`. Concurrency and rate-limiting knobs live in each phase's YAML config.
 
-**Phase 2 (Matcher)** uses a `LLMBackend` Protocol in [hireshire/matcher/scorer.py](hireshire/matcher/scorer.py). Adding a new provider means implementing `score(job, resume_text) -> ScoringSchema`. The active backend is selected by the `LLM_PROVIDER` env var (`gemini` / `openai` / `anthropic`). A `title_filter` in `config/matcher.yaml` pre-filters jobs by title before LLM scoring (saves API calls). An optional `projects_path` markdown file is appended to the candidate profile for richer context. Results are written incrementally to `progress.jsonl` so a mid-run crash can be resumed without re-scoring already-processed jobs.
+**Phase 2 (Matcher)** uses a `LLMBackend` Protocol in [hireshire/matcher/scorer.py](hireshire/matcher/scorer.py). Adding a new provider means implementing `score(job, resume_text) -> ScoringSchema`. The active backend is selected by the `LLM_PROVIDER` env var (`gemini` / `openai` / `anthropic`). A `title_filter` in `config/matcher.yaml` pre-filters jobs by title before LLM scoring (saves API calls). An optional `projects_path` markdown file is appended to the candidate profile for richer context (this key is also present in `config/tuner.yaml` but is no longer used by the tuner's optimizer — it has been superseded by `projects_bullets_path`). Results are written incrementally to `progress.jsonl` so a mid-run crash can be resumed without re-scoring already-processed jobs.
 
 **Phase 3 (Tuner)** runs two sequential LLM passes per job:
-1. `ResumeEvaluator` — recruiter-perspective critique → `EvaluatorResult` Pydantic model
-2. `ResumeOptimizer` — takes critique + resume LaTeX + optional projects pool → optimized LaTeX
+1. `ResumeEvaluator` — recruiter-perspective critique against the full resume LaTeX → `EvaluatorResult` Pydantic model
+2. `ResumeOptimizer` — compact JSON selector: reads critique + a project roster (titles/descriptions only) and returns a `SelectionResult` (which projects to include + per-bullet keyword adjustments). Then `Assembler` ([hireshire/tuner/assembler.py](hireshire/tuner/assembler.py)) substitutes selected entries into a LaTeX template via pure code using pre-authored bullets from `projects_bullets.yaml`.
 
-After optimization, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles with `pdflatex` and loops up to 2 trim retries if the PDF exceeds one page. The tuner supports separate `evaluator_provider`/`optimizer_provider` backends (defaults to `LLM_PROVIDER`). Setting `optimizer_provider: claude_code` routes the optimization call through a local Claude CLI subprocess instead of the API.
+After assembly, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles with `pdflatex`. If the PDF exceeds one page, a code-based bullet-removal loop (in `tuner.py`) decrements bullet counts one at a time and reassembles until it fits — no LLM call involved in trimming. The tuner supports separate `evaluator_provider`/`optimizer_provider` backends (defaults to `LLM_PROVIDER`). Setting `optimizer_provider: claude_code` routes the selector call through a local Claude CLI subprocess instead of the API.
 
 **Phase 4 (Applier)** drives a real browser via the **browser-use** library (Playwright). Each job goes through `QuestionAnswerer` (LLM generates answers to application questions) then `FormFiller` (browser-use agent fills and submits the form). Screenshots are saved per application.
 
@@ -82,6 +82,7 @@ After optimization, [hireshire/tuner/store.py](hireshire/tuner/store.py) compile
 | `MatchResult` | `hireshire/matcher/scorer.py` | Matcher → Applier / Tuner |
 | `ScoringSchema` | `hireshire/matcher/scorer.py` | Matcher (LLM output) |
 | `EvaluatorResult` | `hireshire/tuner/evaluator.py` | Tuner Pass 1 → Pass 2 |
+| `SelectionResult` | `hireshire/tuner/optimizer.py` | Tuner Pass 2 → Assembler |
 | `ApplyRecord` | `hireshire/applier/store.py` | Applier output |
 
 `Job.content_text` auto-strips HTML via a Pydantic validator on ingest.
@@ -93,9 +94,14 @@ Configured in `.env` (see `.env.example`):
 - `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` — whichever provider(s) are used
 - Tuner can use different providers for evaluator vs optimizer via `evaluator_provider` / `optimizer_provider` in `config/tuner.yaml`
 
-### Scraper location filter
+### Scraper
 
-`config/scraper.yaml` supports a `location_filter` list. Each entry is a case-insensitive substring matched against `job.location.name` and `job.offices[].location`. The Greenhouse API has no server-side location filter, so this is applied client-side after fetching. Empty list = no filter.
+`config/scraper.yaml` supports three company entry types — use exactly one token key per company:
+- `greenhouse_token` → Greenhouse Job Board API
+- `ashby_token` → Ashby Job Board API
+- `lever_token` → Lever Job Postings API
+
+The `location_filter` list does a case-insensitive substring match against `job.location.name` and `job.offices[].location`. All three APIs lack server-side location filtering, so this is applied client-side after fetching. Empty list = no filter.
 
 ### Rate Limiting
 

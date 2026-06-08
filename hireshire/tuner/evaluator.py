@@ -23,6 +23,7 @@ class EvaluatorResult(BaseModel):
     experience_gaps: list[str]
     weak_sections: list[str]
     overall_assessment: str
+    years_experience_required: int | None = None
 
 
 @runtime_checkable

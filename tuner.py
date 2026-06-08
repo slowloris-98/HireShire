@@ -28,6 +28,7 @@ from rich.table import Table
 from hireshire.matcher.scorer import MatchResult
 from hireshire.models.job import Job, Location
 from hireshire.tuner.config import load_tuner_config
+from hireshire.tuner.assembler import assemble_resume, load_projects
 from hireshire.tuner.evaluator import ResumeEvaluator, make_evaluator_backend
 from hireshire.tuner.loader import load_shortlisted
 from hireshire.tuner.optimizer import ResumeOptimizer, make_optimizer_backend
@@ -75,7 +76,8 @@ async def _process_job(
     evaluator: ResumeEvaluator,
     optimizer: ResumeOptimizer,
     resume_tex: str,
-    projects_text: str,
+    projects: dict,
+    template_path: str,
     settings,
     force: bool = False,
     quiet: bool = False,
@@ -86,7 +88,7 @@ async def _process_job(
         store.record_skip()
         return "skipped"
 
-    # Pass 1: Recruiter evaluation
+    # Pass 1: Recruiter evaluation (still uses full resume LaTeX for critique)
     critique = await evaluator.evaluate(job, resume_tex)
     if critique is None:
         store.record_error()
@@ -95,16 +97,19 @@ async def _process_job(
     if not critique.job_id:
         critique = critique.model_copy(update={"job_id": job.job_id})
 
-    # Pass 2: Resume optimization
-    optimized_tex = await optimizer.optimize(
+    # Pass 2: Project selection + keyword injection → code-assembled LaTeX
+    optimize_result = await optimizer.optimize(
         job=job,
-        resume_tex=resume_tex,
         critique=critique,
-        projects_text=projects_text,
+        projects=projects,
+        template_path=template_path,
     )
-    if optimized_tex is None:
+    if optimize_result is None:
         store.record_error()
         return "error"
+
+    optimized_tex = optimize_result.tex
+    selection = optimize_result.selection
 
     job_dir = store.save_job(
         job_id=job.job_id,
@@ -113,28 +118,44 @@ async def _process_job(
         optimized_tex=optimized_tex,
     )
 
-    # Compile + trim retry loop
-    MAX_TRIM_RETRIES = 2
+    # Trim loop: remove last bullet from entry with most bullets until 1 page
+    selected_ids = [
+        pid for pid in (selection.selected_projects + [selection.selected_work])
+        if pid in projects
+    ]
+    max_removals = sum(len(projects[pid].get("bullets", [])) for pid in selected_ids)
+
     pages = store.compile_pdf(job_dir)
-    for attempt in range(MAX_TRIM_RETRIES):
+    bullet_limits: dict[str, int] = {}
+
+    for _ in range(max_removals):
         if pages <= 1:
             break
-        logger.info(
-            "Resume for %s is %d pages; trimming (attempt %d/%d)",
-            job.job_id, pages, attempt + 1, MAX_TRIM_RETRIES,
-        )
-        trimmed = await optimizer.trim_to_one_page(optimized_tex, pages)
-        if trimmed is None:
+
+        def _count(pid: str) -> int:
+            return bullet_limits.get(pid, len(projects[pid].get("bullets", [])))
+
+        best = max(selected_ids, key=_count)
+        if _count(best) == 0:
             break
-        optimized_tex = trimmed
+
+        bullet_limits[best] = _count(best) - 1
+        logger.info("Trim: removing last bullet from %s (now %d)", best, bullet_limits[best])
+
+        optimized_tex = assemble_resume(
+            template_path=template_path,
+            projects=projects,
+            selected_project_ids=selection.selected_projects,
+            selected_work_id=selection.selected_work,
+            section_order=selection.section_order,
+            keyword_adjustments=selection.keyword_adjustments,
+            bullet_limits=bullet_limits,
+        )
         store.update_tex(job_dir, optimized_tex)
         pages = store.compile_pdf(job_dir)
 
     if pages > 1 and not quiet:
-        console.print(
-            f"[yellow]Warning: {job.job_id} is {pages} page(s) after "
-            f"{MAX_TRIM_RETRIES} trim attempt(s)[/yellow]"
-        )
+        console.print(f"[yellow]Warning: {job.job_id} is {pages} page(s) after trim[/yellow]")
 
     return "tuned"
 
@@ -179,7 +200,7 @@ async def main(
         console.print(f"  Evaluator : [bold]{eval_provider}/{eval_model}[/bold]")
         console.print(f"  Optimizer : [bold]{opt_provider}/{opt_model}[/bold]")
 
-    # --- Load LaTeX source ---
+    # --- Load LaTeX source (for evaluator) ---
     tex_path = Path(args.resume_tex) if args.resume_tex else Path(settings.resume_tex_path)
     if not tex_path.exists():
         if not quiet:
@@ -192,21 +213,28 @@ async def main(
     if not quiet:
         console.print(f"Resume (LaTeX) loaded: [green]{tex_path}[/green] ({len(resume_tex)} chars)")
 
-    # --- Load projects file (optional) ---
-    projects_path = Path(settings.projects_path)
-    if projects_path.exists():
-        projects_text = projects_path.read_text(encoding="utf-8")
+    # --- Load template (for assembler) ---
+    template_path = settings.resume_template_path
+    if not Path(template_path).exists():
+        if not quiet:
+            console.print(f"[red]Resume template not found: {template_path}[/red]")
+        return
+
+    # --- Load projects bullets YAML (for optimizer/selector) ---
+    bullets_path = Path(settings.projects_bullets_path)
+    if bullets_path.exists():
+        projects = load_projects(bullets_path)
         if not quiet:
             console.print(
-                f"Projects file loaded: [green]{settings.projects_path}[/green] "
-                f"({len(projects_text)} chars)"
+                f"Projects bullets loaded: [green]{bullets_path}[/green] "
+                f"({len(projects)} entries)"
             )
     else:
-        projects_text = ""
+        projects = {}
         if not quiet:
             console.print(
-                f"[yellow]Projects file not found: {settings.projects_path} — "
-                "optimizer will work without additional projects pool.[/yellow]"
+                f"[yellow]Projects bullets file not found: {bullets_path} — "
+                "optimizer will assemble with no projects.[/yellow]"
             )
 
     # --- Set up store and LLM backends ---
@@ -249,7 +277,8 @@ async def main(
                     evaluator=evaluator,
                     optimizer=optimizer,
                     resume_tex=resume_tex,
-                    projects_text=projects_text,
+                    projects=projects,
+                    template_path=template_path,
                     settings=settings,
                     force=False,
                     quiet=quiet,
@@ -363,7 +392,8 @@ async def main(
                 evaluator=evaluator,
                 optimizer=optimizer,
                 resume_tex=resume_tex,
-                projects_text=projects_text,
+                projects=projects,
+                template_path=template_path,
                 settings=settings,
                 force=args.force,
                 quiet=quiet,

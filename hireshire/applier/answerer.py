@@ -8,6 +8,13 @@ from hireshire.models.job import Job
 
 logger = logging.getLogger(__name__)
 
+
+def _openai_token_limit(model: str, n: int) -> dict:
+    if any(model.startswith(p) for p in ("o1", "o3", "gpt-5")):
+        return {"max_completion_tokens": n}
+    return {"max_tokens": n}
+
+
 SYSTEM_PROMPT = (
     "You are helping fill out a job application. "
     "Based on the resume and job description, provide honest, concise, professional answers "
@@ -111,7 +118,7 @@ class QuestionAnswerer:
                 {"role": "user", "content": prompt},
             ],
             response_format={"type": "json_object"},
-            max_tokens=2048,
+            **_openai_token_limit(self._model, 2048),
         )
         return json.loads(response.choices[0].message.content)
 

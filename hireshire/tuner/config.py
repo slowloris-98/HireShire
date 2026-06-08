@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 class TunerSettings(BaseModel):
     resume_tex_path: str = "data/resume_projects/Udayan_Resume.tex"
+    resume_template_path: str = "data/resume_projects/resume_template.tex"
+    projects_bullets_path: str = "data/resume_projects/projects_bullets.yaml"
     projects_path: str = "data/resume_projects/projects.md"
     matches_dir: str = "data/matches"
     runs_dir: str = "data/scraped"
