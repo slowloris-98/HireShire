@@ -73,13 +73,20 @@ Also set `LLM_PROVIDER` to the provider you want to use (defaults to `gemini`).
 
 ### 3. Place your resume
 
-Put your resume PDF at `data/resume.pdf` and update `resume_path` in each phase's config YAML. For Phase 4 (Tuner), also provide a LaTeX source at `data/resume.tex` and update `resume_tex_path` in `config/tuner.yaml`.
+Put your resume PDF at `data/resume.pdf` and update `resume_path` in `config/matcher.yaml` and `config/applier.yaml`.
+
+For Phase 3 (Tuner), the pipeline needs three files under `data/resume_projects/`:
+- `Udayan_Resume.tex` — your full resume LaTeX source (read by the Evaluator)
+- `resume_template.tex` — a template with a `%{{EXPERIENCE_SECTIONS}}` placeholder (filled by the Assembler)
+- `projects_bullets.yaml` — pre-authored LaTeX bullets for each project/work entry
+
+Update the paths in `config/tuner.yaml` if you store these elsewhere.
 
 ---
 
 ## Phase 1: Scraper
 
-Fetches open job listings from company career pages via the **Greenhouse Job Board API**.
+Fetches open job listings from three job board APIs: **Greenhouse**, **Ashby**, and **Lever**. The scraper auto-detects which backend to use based on the token key present in each company entry.
 
 ### Configuration — `config/scraper.yaml`
 
@@ -93,15 +100,15 @@ settings:
     - "india"
 
 companies:
-  - name: Anthropic
-    greenhouse_token: anthropic
   - name: Stripe
-    greenhouse_token: stripe
+    greenhouse_token: stripe       # Greenhouse: job-boards.greenhouse.io/{token}/jobs
+  - name: Linear
+    ashby_token: linear            # Ashby: jobs.ashbyhq.com/{token}
+  - name: Spotify
+    lever_token: spotify           # Lever: jobs.lever.co/{token}
 ```
 
-To add a company, find their Greenhouse board token (usually visible in their careers URL: `job-boards.greenhouse.io/{token}/jobs`) and add it to the list.
-
-The `location_filter` does a substring match against each job's `location` and `offices[].location` fields. Greenhouse doesn't support server-side location filtering, so this is applied client-side after fetching. Leave the list empty (or remove the key) to include all locations.
+Each entry uses exactly one of `greenhouse_token`, `ashby_token`, or `lever_token`. The `location_filter` does a substring match against each job's location fields — all three APIs lack server-side location filtering, so it is applied client-side. Leave the list empty (or remove the key) to include all locations.
 
 ### Run
 
@@ -201,25 +208,33 @@ Each entry in `shortlisted.json`:
 ## Phase 3: Tuner
 
 Two-pass LLM resume optimizer. For each shortlisted job:
-1. **Evaluator** — LLM critiques your resume against the job description (shortcomings, missing keywords, experience gaps)
-2. **Optimizer** — LLM rewrites your LaTeX resume based on the critique, optionally pulling from a projects pool
+1. **Evaluator** — LLM critiques your full resume LaTeX against the job description → structured `EvaluatorResult` (missing keywords, experience gaps, overall assessment)
+2. **Selector** — LLM reads the critique + a compact project roster (titles + descriptions only) and returns a lightweight `SelectionResult` JSON: which 2–3 projects to include and per-bullet keyword adjustments
+3. **Assembler** — pure Python substitutes the selected entries into a LaTeX template using pre-authored bullets from `projects_bullets.yaml` — no LLM generates LaTeX
 
-Compiles the result to PDF with `pdflatex`. If the output exceeds one page, retries optimization up to 2 times with a trim instruction.
+Compiles with `pdflatex`. If the output exceeds one page, a code-based bullet-removal loop trims one bullet at a time from the project with the most bullets and reassembles until it fits — no extra LLM calls.
 
 ### Configuration — `config/tuner.yaml`
 
 ```yaml
 settings:
-  resume_tex_path: data/resume.tex       # LaTeX source to optimize
-  projects_path: data/projects.md        # optional extra projects pool (markdown)
+  resume_tex_path: data/resume_projects/Udayan_Resume.tex         # full resume for evaluator (Pass 1)
+  resume_template_path: data/resume_projects/resume_template.tex  # template for assembler (Pass 2)
+  projects_bullets_path: data/resume_projects/projects_bullets.yaml  # pre-authored LaTeX bullets
   matches_dir: data/matches
   tuned_dir: data/tuned
 
-  # Use different providers for each pass (both fall back to LLM_PROVIDER if unset)
+  model: gpt-4o-mini
+
+  # Per-pass overrides (fall back to LLM_PROVIDER env var if unset)
   evaluator_provider: openai
-  evaluator_model: gpt-4o-mini
-  optimizer_provider: anthropic          # use "claude_code" to route through the local Claude CLI
-  optimizer_model: claude-sonnet-4-6
+  evaluator_model: gpt-5-nano
+  optimizer_provider: openai      # use "claude_code" to route through the local Claude CLI
+  optimizer_model: gpt-5-nano
+
+  max_jd_chars: 12000
+  max_tex_chars: 15000
+  request_interval_s: 5.0
 ```
 
 ### Run
@@ -236,11 +251,11 @@ python tuner.py --jd-file path/to/job.txt --resume-tex path/to/resume.tex
 ```
 data/tuned/2026-05-29T23-24-43Z/
 ├── manifest.json
-└── 5101378008/                  # one directory per job
+└── 5101378008/                        # one directory per job
     ├── job_description.txt
-    ├── critique.json            # structured critique from Pass 1
-    ├── Resume.tex               # optimized LaTeX
-    └── Resume.pdf               # compiled PDF
+    ├── critique.json                  # structured critique from Pass 1
+    ├── Udayan_Atreya_Resume.tex       # assembled LaTeX
+    └── Udayan_Atreya_Resume.pdf       # compiled PDF
 ```
 
 ---
@@ -365,7 +380,9 @@ HireShire/
     ├── http_client.py       # Shared HTTP client with retry/backoff
     ├── scrapers/
     │   ├── base.py
-    │   └── greenhouse.py
+    │   ├── greenhouse.py
+    │   ├── ashby.py
+    │   └── lever.py
     ├── matcher/
     │   ├── config.py
     │   ├── resume.py        # PDF text extraction (pdfplumber)
@@ -375,8 +392,9 @@ HireShire/
     ├── tuner/
     │   ├── config.py
     │   ├── evaluator.py     # Pass 1: recruiter critique → EvaluatorResult
-    │   ├── optimizer.py     # Pass 2: LaTeX optimization + trim retry loop
-    │   ├── prompts.py       # System prompts for both passes
+    │   ├── optimizer.py     # Pass 2: JSON project selector → SelectionResult
+    │   ├── assembler.py     # code-assembles LaTeX from template + pre-authored bullets
+    │   ├── prompts.py       # system prompts for evaluator and selector
     │   ├── loader.py
     │   └── store.py         # PDF compilation with pdflatex
     └── applier/
