@@ -1,6 +1,7 @@
 - Add more valid companies from greenhouse, ashby and lever.
-- Increase the thereshold to 75/80 for higher match
 - Improve applier
+- remove single bullets from longest work ex or project during retrim.
+- Applier or matcher should also have all of the questions answered if application has any.
 
 once pipeline is finished the final pipeline json / csv should be accesible from my phone
 

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def latest_matches_run(matches_dir: Path) -> Path | None:
-    runs = sorted(matches_dir.iterdir(), reverse=True) if matches_dir.exists() else []
+    runs = sorted([p for p in matches_dir.iterdir() if p.is_dir() and p.name[:4].isdigit()], reverse=True) if matches_dir.exists() else []
     return runs[0] if runs else None
 
 
