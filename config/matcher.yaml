@@ -1,5 +1,5 @@
 settings:
-  threshold: 60              # min relevance_score (0-100) to shortlist a job
+  threshold: 75              # min relevance_score (0-100) to shortlist a job
   concurrency: 1             # parallel LLM calls (free tier: keep at 1)
   model: gpt-5-nano    # model name for the chosen LLM_PROVIDER
   request_interval_s: 13    # seconds to wait between requests (13s = ~4.6 RPM; set to 0 on paid tier)

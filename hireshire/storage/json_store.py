@@ -68,5 +68,5 @@ class RunStore:
 
     @staticmethod
     def latest_run(base_dir: Path) -> Optional[Path]:
-        runs = sorted(base_dir.iterdir(), reverse=True) if base_dir.exists() else []
+        runs = sorted([p for p in base_dir.iterdir() if p.is_dir() and p.name[:4].isdigit()], reverse=True) if base_dir.exists() else []
         return runs[0] if runs else None

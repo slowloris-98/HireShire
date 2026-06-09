@@ -3,7 +3,7 @@ settings:
   request_timeout_s: 30
   retry_attempts: 3
   company_timeout_s: 300  # max seconds to wait for a single company before skipping it
-  max_age_hours: 3  # only keep jobs updated in the last N hours; remove this line to fetch all
+  max_age_hours: 12  # only keep jobs updated in the last N hours; remove this line to fetch all
   location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
     - "united states"
     - "remote"
@@ -30,7 +30,6 @@ companies:
 
   - name: Sarvam
     ashby_token: sarvam
-    
   
   - name: PermitFlow
     ashby_token: permitflow
@@ -164,6 +163,8 @@ companies:
   - name: Samba TV
     lever_token: sambatv
 
+  - name: Mistral AI
+    lever_token: mistral
 
 
 
