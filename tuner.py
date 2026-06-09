@@ -118,34 +118,18 @@ async def _process_job(
         optimized_tex=optimized_tex,
     )
 
-    # Trim loop: remove last bullet from entry with most bullets until 1 page
-    selected_ids = [
-        pid for pid in (selection.selected_projects + [selection.selected_work])
-        if pid in projects
-    ]
-    max_removals = sum(len(projects[pid].get("bullets", [])) for pid in selected_ids)
-
+    # Trim phase 1: drop least-relevant project (last in LLM-ordered list) while > 2 and overflowing
+    active_project_ids = list(selection.selected_projects)
     pages = store.compile_pdf(job_dir)
     bullet_limits: dict[str, int] = {}
 
-    for _ in range(max_removals):
-        if pages <= 1:
-            break
-
-        def _count(pid: str) -> int:
-            return bullet_limits.get(pid, len(projects[pid].get("bullets", [])))
-
-        best = max(selected_ids, key=_count)
-        if _count(best) == 0:
-            break
-
-        bullet_limits[best] = _count(best) - 1
-        logger.info("Trim: removing last bullet from %s (now %d)", best, bullet_limits[best])
-
+    while pages > 1 and len(active_project_ids) > 2:
+        dropped = active_project_ids.pop()  # last = least relevant per LLM ordering
+        logger.info("Trim: dropping least-relevant project %s", dropped)
         optimized_tex = assemble_resume(
             template_path=template_path,
             projects=projects,
-            selected_project_ids=selection.selected_projects,
+            selected_project_ids=active_project_ids,
             selected_work_id=selection.selected_work,
             section_order=selection.section_order,
             keyword_adjustments=selection.keyword_adjustments,
@@ -153,6 +137,40 @@ async def _process_job(
         )
         store.update_tex(job_dir, optimized_tex)
         pages = store.compile_pdf(job_dir)
+
+    # Trim phase 2: fall back to per-bullet removal if still overflowing
+    if pages > 1:
+        selected_ids = [
+            pid for pid in (active_project_ids + [selection.selected_work])
+            if pid in projects
+        ]
+        max_removals = sum(len(projects[pid].get("bullets", [])) for pid in selected_ids)
+
+        for _ in range(max_removals):
+            if pages <= 1:
+                break
+
+            def _count(pid: str) -> int:
+                return bullet_limits.get(pid, len(projects[pid].get("bullets", [])))
+
+            best = max(selected_ids, key=_count)
+            if _count(best) == 0:
+                break
+
+            bullet_limits[best] = _count(best) - 1
+            logger.info("Trim: removing last bullet from %s (now %d)", best, bullet_limits[best])
+
+            optimized_tex = assemble_resume(
+                template_path=template_path,
+                projects=projects,
+                selected_project_ids=active_project_ids,
+                selected_work_id=selection.selected_work,
+                section_order=selection.section_order,
+                keyword_adjustments=selection.keyword_adjustments,
+                bullet_limits=bullet_limits,
+            )
+            store.update_tex(job_dir, optimized_tex)
+            pages = store.compile_pdf(job_dir)
 
     if pages > 1 and not quiet:
         console.print(f"[yellow]Warning: {job.job_id} is {pages} page(s) after trim[/yellow]")
