@@ -58,6 +58,10 @@ companies:
   - name: GitLab
     greenhouse_token: gitlab
 
+  - name: 10alabs
+    greenhouse_token: 10alabs
+
+
   - name: Asana
     greenhouse_token: asana
 
