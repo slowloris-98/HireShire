@@ -25,6 +25,13 @@ companies:
   - name: PermitFlow
     ashby_token: permitflow
   
+  - name: Tenex
+    ashby_token: tenex
+
+  - name: Sarvam
+    ashby_token: sarvam
+    
+  
   - name: PermitFlow
     ashby_token: permitflow
   
@@ -60,7 +67,9 @@ companies:
 
   - name: 10alabs
     greenhouse_token: 10alabs
-
+  
+  - name: Riot Games
+    greenhouse_token: riotgames
 
   - name: Asana
     greenhouse_token: asana
