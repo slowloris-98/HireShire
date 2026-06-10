@@ -8,7 +8,7 @@ HireShire is a four-phase automated job search pipeline:
 1. **Scraper** — fetches job listings from Greenhouse, Ashby, and Lever job board APIs
 2. **Matcher** — scores jobs against a resume via LLM (Gemini / OpenAI / Anthropic)
 3. **Tuner** — two-pass resume optimizer (evaluator critique → JSON project selector → code assembler → PDF compile)
-4. **Applier** — fills out and submits job applications via browser automation (Playwright)
+4. **Applier** — fills out and submits job applications via Claude Code's `/apply` skill (Playwright MCP)
 
 Each phase is fully independent: its own entrypoint script, `hireshire/<phase>/` subpackage, `config/<phase>.yaml`, and `data/<phase-output>/` directory.
 
@@ -28,13 +28,15 @@ python matcher.py
 # Phase 3: Optimize resume per job (auto-reads latest matcher run)
 python tuner.py                                    # pipeline mode (latest matcher run)
 python tuner.py --run-id <id>                      # specific matcher run
+python tuner.py --job-id <job_id>                  # tune a single job only
+python tuner.py --force                            # re-tune already-processed jobs
 python tuner.py --jd-file path/to/job.txt          # standalone (single job description)
 python tuner.py --jd-file path/to/job.txt --resume-tex path/to/resume.tex
+python tuner.py --jd-file path/to/job.txt --title "Senior Engineer" --company "Acme"
 
-# Phase 4: Fill and submit applications (auto-reads latest matcher run)
-python applier.py
-python applier.py --run-id <id>   # specific matcher run
-python applier.py --dry-run       # override config, never submit
+# Phase 4: Fill and submit applications (Claude Code skill — reads latest pipeline run)
+# Run via Claude Code: /apply
+# Or trigger automatically from the orchestrator with --apply
 
 # Orchestrator: runs phases 1–3 as a streaming pipeline on a schedule
 python orchestrate.py --now        # run immediately, then every 4h
@@ -42,6 +44,7 @@ python orchestrate.py --once       # run exactly once
 python orchestrate.py --interval 2 # custom interval in hours
 python orchestrate.py --no-tuner   # scraper + matcher only (skip resume tuning)
 python orchestrate.py --no-matcher # scraper only (skip scoring and tuning)
+python orchestrate.py --apply      # invoke /apply skill after each pipeline run
 ```
 
 ## Architecture
@@ -72,7 +75,7 @@ Orchestrator  → data/pipeline/<ts>/{pipeline_results.json, pipeline_results.cs
 
 After assembly, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles with `pdflatex`. If the PDF exceeds one page, a code-based bullet-removal loop (in `tuner.py`) decrements bullet counts one at a time and reassembles until it fits — no LLM call involved in trimming. The tuner supports separate `evaluator_provider`/`optimizer_provider` backends (defaults to `LLM_PROVIDER`). Setting `optimizer_provider: claude_code` routes the selector call through a local Claude CLI subprocess instead of the API.
 
-**Phase 4 (Applier)** drives a real browser via the **browser-use** library (Playwright). Each job goes through `QuestionAnswerer` (LLM generates answers to application questions) then `FormFiller` (browser-use agent fills and submits the form). Screenshots are saved per application.
+**Phase 4 (Applier)** is a Claude Code skill (`.claude/skills/apply.md`, invoked as `/apply`). It reads `data/pipeline/<latest>/pipeline_results.json` and processes only jobs with `tuner_status == "tuned"` and a valid `resume_pdf`. For each job it uses Playwright MCP tools to navigate the form, fill identity fields from `config/applier.yaml`, upload the job-specific tuned resume PDF, optionally generate a cover letter, answer custom questions by reasoning from the resume, and submit (or skip if `dry_run: true`). Results are appended to `data/applied/applied.json`.
 
 ### Key Models
 
@@ -131,4 +134,4 @@ Each script's `main()` accepts optional `in_queue`, `out_queue`, and `quiet` par
 
 **Skip flags** — `--no-tuner` replaces the tuner with a passthrough that marks all jobs `tuner_status: "skipped"` and writes results with null resume fields. `--no-matcher` runs the scraper only and writes an empty results file.
 
-Phase 4 (Applier) is intentionally excluded from the orchestrator — it remains manual.
+**`--apply` flag** — after each pipeline run completes, the orchestrator invokes the `/apply` Claude Code skill by running `claude -p --permission-mode auto` with the skill prompt from `.claude/commands/apply.md`. This is skipped when `--no-tuner` or `--no-matcher` are active (since tuned resumes are a prerequisite). Phase 4 can also be run manually by invoking `/apply` in Claude Code at any time.
