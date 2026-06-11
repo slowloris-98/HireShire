@@ -31,9 +31,6 @@ companies:
   - name: Sarvam
     ashby_token: sarvam
   
-  - name: PermitFlow
-    ashby_token: permitflow
-  
   - name: Teamworks
     ashby_token: teamworks
 
@@ -48,6 +45,9 @@ companies:
 
   - name: Figma
     greenhouse_token: figma
+
+  - name: Veracyte
+    greenhouse_token: veracyte
 
   - name: Stripe
     greenhouse_token: stripe

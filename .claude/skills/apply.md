@@ -58,6 +58,14 @@ radio buttons, checkboxes, file inputs, and textareas. Note their labels and sel
 If the page redirects or shows a "Sign in to apply" gate rather than a direct form,
 note this as an error and skip to step 3f.
 
+**Location check:** Look for a location field, label, or visible text on the page that
+indicates the job's location. If a location is found and it does NOT (case-insensitively)
+contain any of `"united states"`, `"us"`, `"remote"`, `"india"`, `"worldwide"`, or
+`"anywhere"`, skip this job: print a message like
+`"Skipping <title> at <company> — location '<found_location>' is outside target regions"`
+and continue to the next job without writing any record to `applied.json`.
+If no location text is found on the page, continue (treat as unknown/remote).
+
 ### 3b. Fill standard identity fields
 
 Use `playwright_fill` for these — no reasoning needed:
