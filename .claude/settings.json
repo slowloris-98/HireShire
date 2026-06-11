@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(data/pipeline/**)",
+      "Read(data/applied/**)",
+      "Read(data/tuned/**)",
+      "Read(config/applier.yaml)",
+      "Write(data/applied/**)",
+      "mcp__playwright__*"
+    ]
+  }
+}

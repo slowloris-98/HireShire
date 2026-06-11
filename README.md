@@ -8,7 +8,7 @@ Each phase is fully independent — its own entrypoint, module, config, and outp
 
 | | Phase 1 | Phase 2 | Phase 3 | Phase 4 |
 |---|---|---|---|---|
-| **Run** | `python scraper.py` | `python matcher.py` | `python tuner.py` | `python applier.py` |
+| **Run** | `python scraper.py` | `python matcher.py` | `python tuner.py` | `/apply` (Claude skill) |
 | **Module** | `hireshire/scrapers/` | `hireshire/matcher/` | `hireshire/tuner/` | `hireshire/applier/` |
 | **Config** | `config/scraper.yaml` | `config/matcher.yaml` | `config/tuner.yaml` | `config/applier.yaml` |
 | **Output** | `data/scraped/<id>/` | `data/matches/<id>/` | `data/tuned/<id>/` | `data/applied/` |
@@ -240,10 +240,13 @@ settings:
 ### Run
 
 ```bash
-python tuner.py                                          # pipeline mode (latest matcher run)
-python tuner.py --run-id <id>                            # specific matcher run
-python tuner.py --jd-file path/to/job.txt                # standalone (single job description)
+python tuner.py                                                          # pipeline mode (latest matcher run)
+python tuner.py --run-id <id>                                            # specific matcher run
+python tuner.py --job-id <job_id>                                        # tune a single job only
+python tuner.py --force                                                  # re-tune already-processed jobs
+python tuner.py --jd-file path/to/job.txt                                # standalone (single job description)
 python tuner.py --jd-file path/to/job.txt --resume-tex path/to/resume.tex
+python tuner.py --jd-file path/to/job.txt --title "Senior Engineer" --company "Acme"
 ```
 
 ### Output — `data/tuned/<run_id>/`
@@ -262,9 +265,9 @@ data/tuned/2026-05-29T23-24-43Z/
 
 ## Phase 4: Applier
 
-Reads shortlisted jobs and fills out + submits applications using browser automation powered by **browser-use** (Playwright). Run after the Tuner so the optimized resume PDFs are ready.
+A **Claude Code skill** (`/apply`) that reads the latest pipeline results and fills out + submits job applications using Playwright MCP tools. Run after the Tuner so the optimized resume PDFs are ready — the skill only processes jobs with `tuner_status == "tuned"`.
 
-> **Safety:** `dry_run: true` is the default. Set it to `false` in `config/applier.yaml` only when ready to submit live applications.
+> **Safety:** `dry_run: true` is the default in `config/applier.yaml`. Set it to `false` only when ready to submit live applications.
 
 ### Configuration — `config/applier.yaml`
 
@@ -273,12 +276,8 @@ settings:
   dry_run: true              # SAFETY: never submits when true
   headless: false            # show browser window while running
   inter_job_delay_s: 10      # seconds between applications
-  max_steps: 40              # max browser-use steps per application
-  resume_path: data/resume.pdf
-  matches_dir: data/matches
   applied_dir: data/applied
   generate_cover_letter: true
-  model: gpt-4o-mini         # LLM for question answering and browser agent
 
   # Personal info filled into application forms
   first_name: Your
@@ -289,10 +288,16 @@ settings:
 
 ### Run
 
+```
+/apply
+```
+
+Invoke the skill in Claude Code. It reads the latest `data/pipeline/*/pipeline_results.json`, skips jobs that are already in `applied.json`, and processes the remaining tuned jobs sequentially.
+
+The orchestrator can also trigger it automatically after each pipeline run:
+
 ```bash
-python applier.py                    # reads latest matcher run
-python applier.py --run-id <id>      # specific matcher run
-python applier.py --dry-run          # override config, never submit
+python orchestrate.py --apply
 ```
 
 ### Output — `data/applied/`
@@ -310,18 +315,22 @@ Each entry in `applied.json`:
   "job_id": "5101378008",
   "board_token": "anthropic",
   "title": "Software Engineer, Platform",
+  "absolute_url": "https://job-boards.greenhouse.io/...",
   "status": "submitted",
-  "applied_at": "2026-05-29T23:45:00Z"
+  "dry_run": false,
+  "applied_at": "2026-05-29T23:45:00Z",
+  "screenshot": "data/applied/screenshots/5101378008.png",
+  "error": null
 }
 ```
 
-Status values: `"submitted"` | `"dry_run"` | `"error"` | `"skipped"`
+Status values: `"submitted"` | `"dry_run"` | `"error"`
 
 ---
 
 ## Orchestrator
 
-`orchestrate.py` runs Phases 1–3 automatically as a streaming pipeline. Phase 4 (Applier) remains manual — review the tuned resumes before submitting.
+`orchestrate.py` runs Phases 1–3 automatically as a streaming pipeline. Phase 4 (Applier) can be triggered automatically with `--apply`, or run manually as the `/apply` Claude Code skill — review the tuned resumes first.
 
 The three phases run concurrently using asyncio queues:
 - Each company's jobs are queued for the matcher as soon as they're fetched
@@ -333,6 +342,7 @@ python orchestrate.py --once       # run exactly once
 python orchestrate.py --interval 2 # every 2 hours instead of 4
 python orchestrate.py --no-tuner   # scraper + matcher only (skip resume tuning)
 python orchestrate.py --no-matcher # scraper only (skip scoring and tuning)
+python orchestrate.py --apply      # invoke /apply skill after each run
 ```
 
 Logs are written to `logs/orchestrate.log` (rotates at 5 MB, keeps 5 files).
@@ -348,6 +358,8 @@ data/pipeline/2026-06-04T02-01-50Z/
 ```
 
 Every shortlisted job appears regardless of tuner outcome. The `tuner_status` field indicates what happened (`"tuned"` / `"skipped"` / `"error"`), and `resume_tex`/`resume_pdf` are `null` when tuning didn't complete. With `--no-matcher` the file is written but empty (`[]`).
+
+With `--apply`, the orchestrator invokes the `/apply` skill via `claude -p --permission-mode auto` after each run completes. The skill reads this file and applies only tuned jobs. This flag is ignored when `--no-tuner` or `--no-matcher` are set.
 
 ---
 

@@ -89,6 +89,35 @@ async def _bypass_tuner(in_q: asyncio.Queue, out_q: asyncio.Queue) -> None:
     await out_q.put(None)
 
 
+async def _launch_apply() -> None:
+    skill_path = Path(".claude/commands/apply.md")
+    if not skill_path.exists():
+        logger.error("apply skill not found at %s", skill_path)
+        return
+
+    skill_prompt = skill_path.read_text(encoding="utf-8")
+    logger.info("Launching /apply skill...")
+
+    proc = await asyncio.create_subprocess_exec(
+        "claude", "-p",
+        "--permission-mode", "auto",
+        skill_prompt,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    if stdout:
+        logger.info("apply output:\n%s", stdout.decode(errors="replace"))
+    if proc.returncode != 0:
+        logger.error(
+            "apply skill exited with code %d\n%s",
+            proc.returncode,
+            stderr.decode(errors="replace"),
+        )
+    else:
+        logger.info("apply skill completed successfully")
+
+
 async def _track_results(q: asyncio.Queue, results_dir: Path) -> None:
     json_path = results_dir / "pipeline_results.json"
     csv_path = results_dir / "pipeline_results.csv"
@@ -174,6 +203,10 @@ async def main() -> None:
         "--no-matcher", action="store_true",
         help="Run scraper only; skip matcher and tuner",
     )
+    parser.add_argument(
+        "--apply", action="store_true",
+        help="After each pipeline run, invoke the /apply skill to submit applications",
+    )
     args = parser.parse_args()
 
     _setup_logging()
@@ -186,6 +219,8 @@ async def main() -> None:
 
     while True:
         await run_pipeline(skip_matcher=args.no_matcher, skip_tuner=args.no_tuner)
+        if args.apply and not args.no_tuner and not args.no_matcher:
+            await _launch_apply()
         if args.once:
             break
         logger.info("Next run in %.1fh", args.interval)

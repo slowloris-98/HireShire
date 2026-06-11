@@ -1,5 +1,7 @@
 - Add more valid companies from greenhouse, ashby and lever.
 - Improve applier
+    - How is the fields for the custom field are being filled?
+    - Is it using the just the resume, or is it also using the project.md and project bullets.
 - remove single bullets from longest work ex or project during retrim.
 - Applier or matcher should also have all of the questions answered if application has any.
 

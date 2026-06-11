@@ -1,5 +1,5 @@
 settings:
-  dry_run: true                    # CRITICAL: set to false to actually submit applications
+  dry_run: false                    # CRITICAL: set to false to actually submit applications
   matches_dir: data/matches
   applied_dir: data/applied
   runs_dir: data/scraped

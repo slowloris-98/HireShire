@@ -15,6 +15,7 @@ data/tuned/
 data/pipeline_results/
 data/pipeline/
 data/seen_jobs.json
+.playwright-mcp
 
 # Resume (personal data)
 data/resume_projects/

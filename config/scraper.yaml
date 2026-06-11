@@ -3,7 +3,7 @@ settings:
   request_timeout_s: 30
   retry_attempts: 3
   company_timeout_s: 300  # max seconds to wait for a single company before skipping it
-  max_age_hours: 12  # only keep jobs updated in the last N hours; remove this line to fetch all
+  max_age_hours: 3  # only keep jobs updated in the last N hours; remove this line to fetch all
   location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
     - "united states"
     - "remote"
@@ -31,9 +31,6 @@ companies:
   - name: Sarvam
     ashby_token: sarvam
   
-  - name: PermitFlow
-    ashby_token: permitflow
-  
   - name: Teamworks
     ashby_token: teamworks
 
@@ -48,6 +45,9 @@ companies:
 
   - name: Figma
     greenhouse_token: figma
+
+  - name: Veracyte
+    greenhouse_token: veracyte
 
   - name: Stripe
     greenhouse_token: stripe
