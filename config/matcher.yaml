@@ -30,6 +30,10 @@ title_filter:
     - go-to market
     - go to market
     - solution architect
+    - genai
+    - gen ai
+    - applied ai
+
 
   # Title must contain none of these.
   exclude_keywords:
