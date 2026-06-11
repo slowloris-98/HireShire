@@ -1,9 +1,12 @@
 """
-Add/remove companies in config/scraper.yaml, then run:
+Company slugs are loaded from config/ashby_companies.json, config/greenhouse_companies.json,
+and config/lever_companies.json. Bad slugs (404s) are persisted in config/bad_slugs.json
+and skipped on subsequent runs. Run with:
     python scraper.py
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,6 +18,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn
 from hireshire.config import load_config
 from hireshire.http_client import build_client
 from hireshire.scrapers.ashby import AshbyScraper
+from hireshire.scrapers.exceptions import SlugNotFoundError
 from hireshire.scrapers.greenhouse import GreenhouseScraper
 from hireshire.scrapers.lever import LeverScraper
 from hireshire.storage.json_store import RunStore
@@ -22,16 +26,31 @@ from hireshire.storage.json_store import RunStore
 logger = logging.getLogger(__name__)
 console = Console()
 
+BAD_SLUGS_PATH = Path("config/bad_slugs.json")
+_PLATFORMS = ("ashby", "greenhouse", "lever")
+
+
+def _load_bad_slugs() -> dict[str, set[str]]:
+    if BAD_SLUGS_PATH.exists():
+        raw = json.loads(BAD_SLUGS_PATH.read_text(encoding="utf-8"))
+        return {p: set(raw.get(p, [])) for p in _PLATFORMS}
+    return {p: set() for p in _PLATFORMS}
+
+
+def _save_bad_slugs(bad: dict[str, set[str]]) -> None:
+    BAD_SLUGS_PATH.write_text(
+        json.dumps({p: sorted(bad[p]) for p in _PLATFORMS}, indent=2),
+        encoding="utf-8",
+    )
+
 
 def _matches_location(job, terms: list[str]) -> bool:
-    """Return True if any term is a substring of the job's location or any office location."""
     haystack = [job.location.name.lower()]
     haystack += [o.location.lower() for o in job.offices if o.location]
     return any(term in loc for term in terms for loc in haystack)
 
 
 class _NoopProgress:
-    """Drop-in replacement for Rich Progress used in quiet mode."""
     def update(self, *a, **kw): pass
     def advance(self, *a, **kw): pass
     def add_task(self, *a, **kw): return 0
@@ -49,17 +68,20 @@ async def main(
             level=logging.WARNING,
             handlers=[RichHandler(show_path=False, rich_tracebacks=True)],
         )
-        logging.getLogger("hireshire").setLevel(logging.INFO)
 
     config = load_config("config/scraper.yaml")
     settings = config.settings
-    greenhouse_companies = config.greenhouse_companies
-    lever_companies = config.lever_companies
-    ashby_companies = config.ashby_companies
+
+    bad_slugs = _load_bad_slugs()
+    total_skipped = sum(len(v) for v in bad_slugs.values())
+
+    ashby_companies = [c for c in config.ashby_companies if c.ashby_token not in bad_slugs["ashby"]]
+    greenhouse_companies = [c for c in config.greenhouse_companies if c.greenhouse_token not in bad_slugs["greenhouse"]]
+    lever_companies = [c for c in config.lever_companies if c.lever_token not in bad_slugs["lever"]]
 
     if not greenhouse_companies and not lever_companies and not ashby_companies:
         if not quiet:
-            console.print("[yellow]No companies configured. Add greenhouse_token, lever_token, or ashby_token entries in config/scraper.yaml.[/yellow]")
+            console.print("[yellow]No companies to scrape. All slugs may be in the bad-slugs list.[/yellow]")
         return
 
     if run_id is None:
@@ -91,10 +113,20 @@ async def main(
             sources.append(f"[bold]{len(lever_companies)}[/bold] via Lever")
         if ashby_companies:
             sources.append(f"[bold]{len(ashby_companies)}[/bold] via Ashby")
-        console.print(f"Fetching from {' + '.join(sources)}\n")
+        console.print(f"Fetching from {' + '.join(sources)}", end="")
+        if total_skipped:
+            console.print(f"  [dim]({total_skipped} known-bad slugs skipped)[/dim]")
+        else:
+            console.print()
+        console.print()
 
     sem = asyncio.Semaphore(settings.concurrency)
-    results = []
+    lock = asyncio.Lock()
+    newly_bad: dict[str, list[str]] = {p: [] for p in _PLATFORMS}
+
+    # Counters shared across tasks (mutated under lock)
+    counters = {"jobs": 0, "with_jobs": 0, "errors": 0, "not_found": 0}
+    errors_detail: list[tuple[str, str]] = []  # (name, error message)
 
     try:
         async with build_client(settings.request_timeout_s) as client:
@@ -118,7 +150,7 @@ async def main(
             with prog_ctx as progress:
                 task = progress.add_task("Scraping companies...", total=total_companies)
 
-                async def scrape_one(company, scraper_instance, token):
+                async def scrape_one(company, scraper_instance, token, platform):
                     progress.update(task, description=f"[cyan]{company.name}[/cyan]")
                     try:
                         jobs = await asyncio.wait_for(
@@ -132,42 +164,65 @@ async def main(
                         store.save_company(token, jobs)
                         if out_queue is not None:
                             await out_queue.put((token, jobs))
-                        logger.info("Scraped %s: %d jobs", company.name, len(jobs))
-                        return company.name, len(jobs), None
-                    except asyncio.TimeoutError:
-                        logger.warning("Scrape timed out after %ss: %s — skipping", settings.company_timeout_s, company.name)
-                        store.record_error(token, "timeout", f"exceeded {settings.company_timeout_s}s")
+                        async with lock:
+                            counters["jobs"] += len(jobs)
+                            if jobs:
+                                counters["with_jobs"] += 1
+                    except SlugNotFoundError as exc:
+                        async with lock:
+                            newly_bad[exc.platform].append(exc.token)
+                            counters["not_found"] += 1
                         if out_queue is not None:
                             await out_queue.put((token, []))
-                        return company.name, 0, f"timeout after {settings.company_timeout_s}s"
+                    except asyncio.TimeoutError:
+                        msg = f"timeout after {settings.company_timeout_s}s"
+                        logger.warning("Scrape timed out: %s — skipping", company.name)
+                        store.record_error(token, "timeout", msg)
+                        if out_queue is not None:
+                            await out_queue.put((token, []))
+                        async with lock:
+                            counters["errors"] += 1
+                            errors_detail.append((company.name, msg))
                     except Exception as exc:
-                        store.record_error(token, "error", str(exc))
+                        msg = str(exc)
+                        store.record_error(token, "error", msg)
                         logger.exception("Failed to scrape %s", company.name)
-                        return company.name, 0, str(exc)
+                        async with lock:
+                            counters["errors"] += 1
+                            errors_detail.append((company.name, msg))
                     finally:
                         progress.advance(task)
 
-                gh_tasks = [scrape_one(c, greenhouse_scraper, c.greenhouse_token) for c in greenhouse_companies]
-                lv_tasks = [scrape_one(c, lever_scraper, c.lever_token) for c in lever_companies]
-                as_tasks = [scrape_one(c, ashby_scraper, c.ashby_token) for c in ashby_companies]
-                results = await asyncio.gather(*gh_tasks, *lv_tasks, *as_tasks)
+                gh_tasks = [scrape_one(c, greenhouse_scraper, c.greenhouse_token, "greenhouse") for c in greenhouse_companies]
+                lv_tasks = [scrape_one(c, lever_scraper, c.lever_token, "lever") for c in lever_companies]
+                as_tasks = [scrape_one(c, ashby_scraper, c.ashby_token, "ashby") for c in ashby_companies]
+                await asyncio.gather(*gh_tasks, *lv_tasks, *as_tasks)
 
         store.save_manifest(started_at)
     finally:
         if out_queue is not None:
-            await out_queue.put(None)  # sentinel — always sent, even on error
+            await out_queue.put(None)
+
+    # Persist newly discovered bad slugs
+    new_count = sum(len(v) for v in newly_bad.values())
+    if new_count:
+        for platform, tokens in newly_bad.items():
+            bad_slugs[platform].update(tokens)
+        _save_bad_slugs(bad_slugs)
 
     if not quiet:
         console.print("\n[bold]Results[/bold]")
-        total = 0
-        for name, count, error in results:
-            if error:
-                console.print(f"  [red]✗[/red] {name}: {error}")
-            else:
-                console.print(f"  [green]✓[/green] {name}: {count} jobs")
-                total += count
+        zero_jobs = total_companies - counters["with_jobs"] - counters["errors"] - counters["not_found"]
+        console.print(f"  [green]✓[/green] {counters['with_jobs']} companies had jobs  ({counters['jobs']} total jobs)")
+        console.print(f"  [dim]·[/dim] {zero_jobs} companies: 0 jobs")
+        if counters["not_found"]:
+            console.print(f"  [dim]+[/dim] {counters['not_found']} new bad slugs → [cyan]{BAD_SLUGS_PATH}[/cyan]")
+        if counters["errors"]:
+            console.print(f"  [red]✗[/red] {counters['errors']} errors")
+            for name, msg in errors_detail:
+                console.print(f"      [red]{name}[/red]: {msg}")
         console.print(
-            f"\n[bold green]{total} total jobs[/bold green] saved to [cyan]data/scraped/{run_id}/[/cyan]"
+            f"\n[bold green]{counters['jobs']} total jobs[/bold green] saved to [cyan]data/scraped/{run_id}/[/cyan]"
         )
 
 

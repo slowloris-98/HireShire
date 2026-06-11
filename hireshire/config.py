@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -41,9 +42,29 @@ class AppConfig(BaseModel):
         return [c for c in self.companies if c.ashby_token]
 
 
+def _load_companies_from_jsons(
+    ashby_path: Path, greenhouse_path: Path, lever_path: Path
+) -> list[CompanyConfig]:
+    companies: list[CompanyConfig] = []
+    for slug in json.loads(ashby_path.read_text(encoding="utf-8")):
+        companies.append(CompanyConfig(name=slug, ashby_token=slug))
+    for slug in json.loads(greenhouse_path.read_text(encoding="utf-8")):
+        companies.append(CompanyConfig(name=slug, greenhouse_token=slug))
+    for slug in json.loads(lever_path.read_text(encoding="utf-8")):
+        companies.append(CompanyConfig(name=slug, lever_token=slug))
+    return companies
+
+
 def load_config(path: str | Path = "config/scraper.yaml") -> AppConfig:
-    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    path = Path(path)
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    base = path.parent
+    companies = _load_companies_from_jsons(
+        ashby_path=base / "ashby_companies.json",
+        greenhouse_path=base / "greenhouse_companies.json",
+        lever_path=base / "lever_companies.json",
+    )
     return AppConfig(
         settings=ScraperSettings(**raw.get("settings", {})),
-        companies=[CompanyConfig(**c) for c in raw.get("companies", [])],
+        companies=companies,
     )

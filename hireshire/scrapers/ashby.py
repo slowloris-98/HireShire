@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from hireshire.http_client import make_retry_decorator
 from hireshire.models.job import Department, Job, Location, Office
 from hireshire.scrapers.base import AbstractScraper
+from hireshire.scrapers.exceptions import SlugNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -74,26 +75,21 @@ class AshbyScraper(AbstractScraper):
     async def fetch_all(self, board_token: str) -> list[Job]:
         scraped_at = datetime.now(timezone.utc)
         url = f"{BASE_URL}/{board_token}"
-        logger.info("Ashby: fetching %s", board_token)
 
         try:
             response = await self._get(url)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
-                logger.warning("Board token %r not found on Ashby", board_token)
-                return []
+                raise SlugNotFoundError("ashby", board_token) from exc
             raise
 
         data = response.json()
         entries: list[dict] = data.get("jobs") or []
         if not entries:
-            logger.info("Ashby: %s — 0 jobs", board_token)
             return []
 
         jobs = [_parse_job(board_token, e, scraped_at) for e in entries]
-        result = [j for j in jobs if j is not None]
-        logger.info("Ashby: %s — %d jobs", board_token, len(result))
-        return result
+        return [j for j in jobs if j is not None]
 
     async def _get(self, url: str) -> httpx.Response:
         @self._retry

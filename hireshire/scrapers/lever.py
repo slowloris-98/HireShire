@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from hireshire.http_client import make_retry_decorator
 from hireshire.models.job import Department, Job, Location, Office
 from hireshire.scrapers.base import AbstractScraper
+from hireshire.scrapers.exceptions import SlugNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,6 @@ class LeverScraper(AbstractScraper):
     async def _fetch_all_pages(self, board_token: str) -> list[dict]:
         all_entries: list[dict] = []
         skip = 0
-        logger.info("Lever: starting %s", board_token)
 
         while True:
             url = f"{BASE_URL}/{board_token}?mode=json&limit={PAGE_SIZE}&skip={skip}"
@@ -95,16 +95,14 @@ class LeverScraper(AbstractScraper):
                 response = await self._get(url)
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 404:
-                    logger.warning("Board token %r not found on Lever", board_token)
-                    return []
+                    raise SlugNotFoundError("lever", board_token) from exc
                 raise
 
             data = response.json()
 
             # Lever returns {"ok": false, "error": "..."} for unknown companies
             if isinstance(data, dict) and not data.get("ok", True):
-                logger.warning("Lever error for %r: %s", board_token, data.get("error"))
-                return []
+                raise SlugNotFoundError("lever", board_token)
 
             if not isinstance(data, list) or not data:
                 break
@@ -116,16 +114,10 @@ class LeverScraper(AbstractScraper):
                         continue
                 all_entries.append(entry)
 
-            logger.info(
-                "Lever: %s — skip=%d received=%d running_total=%d",
-                board_token, skip, len(data), len(all_entries),
-            )
-
             if len(data) < PAGE_SIZE:
                 break
             skip += PAGE_SIZE
 
-        logger.info("Lever: %s — done, %d raw entries", board_token, len(all_entries))
         return all_entries
 
     async def _get(self, url: str) -> httpx.Response:
