@@ -1,10 +1,11 @@
 - Add more valid companies from greenhouse, ashby and lever.
-- Improve applier
-    - How is the fields for the custom field are being filled?
-    - Is it using the just the resume, or is it also using the project.md and project bullets.
-- remove single bullets from longest work ex or project during retrim.
-- Applier or matcher should also have all of the questions answered if application has any.
+- Filter companies
+- A jobs shortlisted from matcher for a single days should be added in a csv with job link and folder link to resume if any.
+    - if no resume from tuner then atleast the entry should be there
+    
+
 
 once pipeline is finished the final pipeline json / csv should be accesible from my phone
 
 have the matcher env provider also in the config
+
