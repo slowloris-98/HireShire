@@ -141,7 +141,7 @@ async def _track_results(q: asyncio.Queue, results_dir: Path) -> None:
         logger.info("Tracked result: %s — %s", record["company"], record["title"])
 
 
-async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False) -> None:
+async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False, skip_llm: bool = False) -> None:
     run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 
     results_dir = Path("data/pipeline") / run_id
@@ -163,7 +163,7 @@ async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False) -> 
             q2: asyncio.Queue = asyncio.Queue()
             await asyncio.gather(
                 scraper.main(out_queue=q1, quiet=True, run_id=run_id),
-                matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id),
+                matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm),
                 _bypass_tuner(q2, q3),
                 _track_results(q3, results_dir),
             )
@@ -172,7 +172,7 @@ async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False) -> 
             q2: asyncio.Queue = asyncio.Queue()
             await asyncio.gather(
                 scraper.main(out_queue=q1, quiet=True, run_id=run_id),
-                matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id),
+                matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm),
                 tuner.main(in_queue=q2, out_queue=q3, quiet=True),
                 _track_results(q3, results_dir),
             )
@@ -204,6 +204,10 @@ async def main() -> None:
         help="Run scraper only; skip matcher and tuner",
     )
     parser.add_argument(
+        "--no-llm", action="store_true",
+        help="Skip LLM scoring in the matcher; all title-passing jobs are shortlisted automatically",
+    )
+    parser.add_argument(
         "--apply", action="store_true",
         help="After each pipeline run, invoke the /apply skill to submit applications",
     )
@@ -218,7 +222,7 @@ async def main() -> None:
         await asyncio.sleep(interval_s)
 
     while True:
-        await run_pipeline(skip_matcher=args.no_matcher, skip_tuner=args.no_tuner)
+        await run_pipeline(skip_matcher=args.no_matcher, skip_tuner=args.no_tuner, skip_llm=args.no_llm)
         if args.apply and not args.no_tuner and not args.no_matcher:
             await _launch_apply()
         if args.once:

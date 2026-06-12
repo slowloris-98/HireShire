@@ -16,6 +16,7 @@ class MatcherSettings(BaseModel):
     runs_dir: str = "data/scraped"
     matches_dir: str = "data/matches"
     request_interval_s: float = 13.0  # min seconds between requests; 13s = ~4.6 RPM (safe for 5 RPM free tier)
+    skip_llm: bool = False
 
 
 class TitleFilterConfig(BaseModel):

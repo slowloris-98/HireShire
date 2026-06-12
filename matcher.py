@@ -38,11 +38,29 @@ class _NoopProgress:
     def __exit__(self, *a): pass
 
 
+def _passthrough_result(job, run_id: str) -> MatchResult:
+    return MatchResult(
+        job_id=job.job_id,
+        board_token=job.board_token,
+        title=job.title,
+        location=job.location.name,
+        absolute_url=str(job.absolute_url),
+        relevance_score=100,
+        match_reasons=["LLM scoring skipped"],
+        disqualifiers=[],
+        recommend=True,
+        skip_reason="llm_skipped",
+        scored_at=datetime.now(timezone.utc),
+        source_run_id=run_id,
+    )
+
+
 async def main(
     in_queue: asyncio.Queue | None = None,
     out_queue: asyncio.Queue | None = None,
     quiet: bool = False,
     run_id: str | None = None,
+    skip_llm: bool = False,
 ) -> None:
     if not quiet:
         logging.basicConfig(
@@ -52,6 +70,7 @@ async def main(
 
     config = load_matcher_config("config/matcher.yaml")
     settings = config.settings
+    effective_skip_llm = skip_llm or settings.skip_llm
 
     # --- Determine run_id ---
     run_dir = None
@@ -95,8 +114,9 @@ async def main(
     # --- Set up scorer and store (both modes) ---
     started_at = datetime.now(timezone.utc)
     sem = asyncio.Semaphore(settings.concurrency)
-    backend = make_backend(settings, sem)
-    scorer = JobScorer(settings=settings, backend=backend)
+    if not effective_skip_llm:
+        backend = make_backend(settings, sem)
+        scorer = JobScorer(settings=settings, backend=backend)
     store = MatchStore(base_dir=Path(settings.matches_dir), run_id=run_id)
 
     seen = SeenStore(Path(settings.matches_dir).parent / "seen_jobs.json")
@@ -150,7 +170,15 @@ async def main(
                     )
                 to_score, title_filtered = apply_title_filter(unseen, config.title_filter, run_id)
                 results.extend(title_filtered)
-                results.extend(await asyncio.gather(*[score_one(j) for j in to_score]))
+                if effective_skip_llm:
+                    for j in to_score:
+                        r = _passthrough_result(j, run_id)
+                        store.append_result(r)
+                        if out_queue is not None:
+                            await out_queue.put((r, j))
+                        results.append(r)
+                else:
+                    results.extend(await asyncio.gather(*[score_one(j) for j in to_score]))
         except Exception:
             logger.exception("Matcher queue loop failed")
         finally:
@@ -222,13 +250,20 @@ async def main(
     with prog_ctx as progress:
         task = progress.add_task("Scoring jobs...", total=len(jobs_to_score))
 
-        async def score_one_p(job):
-            try:
-                return await score_one(job)
-            finally:
+        if effective_skip_llm:
+            for j in jobs_to_score:
+                r = _passthrough_result(j, run_id)
+                store.append_result(r)
+                results.append(r)
                 progress.advance(task)
+        else:
+            async def score_one_p(job):
+                try:
+                    return await score_one(job)
+                finally:
+                    progress.advance(task)
 
-        results += list(await asyncio.gather(*[score_one_p(j) for j in jobs_to_score]))
+            results += list(await asyncio.gather(*[score_one_p(j) for j in jobs_to_score]))
 
     shortlisted = [r for r in results if not r.skipped and r.relevance_score >= settings.threshold]
     rejected = [r for r in results if r.skipped or r.relevance_score < settings.threshold]
@@ -266,11 +301,13 @@ async def main(
             1 for r in results
             if r.skipped and r.skip_reason not in ("title_excluded", "title_no_include_match")
         )
+        llm_skipped_count = sum(1 for r in results if r.skip_reason == "llm_skipped")
         console.print(
             f"\n[bold]{len(shortlisted)} shortlisted[/bold], "
             f"{len(rejected) - title_filtered_count - other_skipped_count} rejected by LLM, "
             f"{title_filtered_count} title-filtered, "
-            f"{other_skipped_count} skipped "
+            + (f"{llm_skipped_count} LLM-skipped (auto-shortlisted), " if llm_skipped_count else "")
+            + f"{other_skipped_count} skipped "
             f"→ [cyan]data/matches/{run_id}/[/cyan]"
         )
 
