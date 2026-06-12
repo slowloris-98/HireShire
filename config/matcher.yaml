@@ -16,11 +16,8 @@ title_filter:
     - developer
     - software
     - backend
-    - fullstack
-    - full-stack
     - ml
     - machine learning
-    - data
     - analyst
     - scientist
     - gtm
@@ -33,6 +30,8 @@ title_filter:
     - genai
     - gen ai
     - applied ai
+    - ai engineer
+    - swe
 
 
   # Title must contain none of these.
@@ -48,3 +47,4 @@ title_filter:
     - android
     - mobile
     - senior
+    - fullstack
