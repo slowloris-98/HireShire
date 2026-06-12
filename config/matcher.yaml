@@ -4,6 +4,7 @@ settings:
   model: gpt-5-nano    # model name for the chosen LLM_PROVIDER
   request_interval_s: 13    # seconds to wait between requests (13s = ~4.6 RPM; set to 0 on paid tier)
   max_content_chars: 8000    # truncate job description to this length before sending
+  skip_llm: true                   # set true to skip LLM scoring; all title-passing jobs are shortlisted
   resume_path: data/resume_projects/Udayan_Resume.pdf    # path to your resume (relative to project root)
   projects_path: data/resume_projects/projects.md        # optional extra context appended to candidate profile
   runs_dir: data/scraped     # where scraper output lives

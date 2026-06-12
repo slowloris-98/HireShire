@@ -17,6 +17,7 @@ class CompanyResult:
         self.status: str = "ok"
         self.job_count: int = 0
         self.error: Optional[str] = None
+        self.jobs: list[dict] = []
 
 
 class RunStore:
@@ -29,11 +30,11 @@ class RunStore:
     def save_company(self, board_token: str, jobs: list[Job]) -> None:
         result = CompanyResult(board_token)
         result.job_count = len(jobs)
+        result.jobs = [job.model_dump(mode="json") for job in jobs]
         self._results.append(result)
 
         out_path = self.run_dir / f"{board_token}.json"
-        data = [job.model_dump(mode="json") for job in jobs]
-        out_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        out_path.write_text(json.dumps(result.jobs, indent=2, default=str), encoding="utf-8")
         logger.info("Saved %d jobs for %s -> %s", len(jobs), board_token, out_path)
 
     def record_error(self, board_token: str, status: str, error: str) -> None:
@@ -52,6 +53,7 @@ class RunStore:
                 "status": r.status,
                 "job_count": r.job_count,
                 "error": r.error,
+                "jobs": r.jobs,
             }
 
         manifest = {
