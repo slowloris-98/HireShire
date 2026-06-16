@@ -1,4 +1,5 @@
 - Add more valid companies from greenhouse, ashby and lever.
+   - update the list if required.
 - Filter companies
 - A jobs shortlisted from matcher for a single days should be added in a csv with job link and folder link to resume if any.
     - if no resume from tuner then atleast the entry should be there

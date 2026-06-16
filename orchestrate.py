@@ -21,7 +21,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from rich.console import Console
+from rich.live import Live
 from rich.logging import RichHandler
+from rich.table import Table
 
 import matcher
 import scraper
@@ -51,7 +53,7 @@ def _setup_logging() -> None:
     logging.basicConfig(
         level=logging.INFO,
         handlers=[
-            RichHandler(show_path=False, show_time=False, rich_tracebacks=True),
+            RichHandler(console=console, show_path=False, show_time=False, rich_tracebacks=True),
             file_handler,
         ],
     )
@@ -141,6 +143,13 @@ async def _track_results(q: asyncio.Queue, results_dir: Path) -> None:
         logger.info("Tracked result: %s — %s", record["company"], record["title"])
 
 
+def _make_status_table(scrape: str, match: str) -> Table:
+    grid = Table.grid(padding=(0, 2))
+    grid.add_row("[dim]Scraping:[/dim]", f"[cyan]{scrape}[/cyan]")
+    grid.add_row("[dim]Matching:[/dim]", f"[cyan]{match}[/cyan]")
+    return grid
+
+
 async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False, skip_llm: bool = False) -> None:
     run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 
@@ -153,29 +162,40 @@ async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False, ski
 
     q3: asyncio.Queue = asyncio.Queue()
 
+    status = {"scrape": "—", "match": "—"}
+
+    def on_company_start(name: str) -> None:
+        status["scrape"] = name
+        live.update(_make_status_table(status["scrape"], status["match"]))
+
+    def on_job_score(board_token: str, title: str) -> None:
+        status["match"] = f"{board_token} — {title}"
+        live.update(_make_status_table(status["scrape"], status["match"]))
+
     try:
-        if skip_matcher:
-            await scraper.main(quiet=True, run_id=run_id)
-            await q3.put(None)
-            await _track_results(q3, results_dir)
-        elif skip_tuner:
-            q1: asyncio.Queue = asyncio.Queue()
-            q2: asyncio.Queue = asyncio.Queue()
-            await asyncio.gather(
-                scraper.main(out_queue=q1, quiet=True, run_id=run_id),
-                matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm),
-                _bypass_tuner(q2, q3),
-                _track_results(q3, results_dir),
-            )
-        else:
-            q1: asyncio.Queue = asyncio.Queue()
-            q2: asyncio.Queue = asyncio.Queue()
-            await asyncio.gather(
-                scraper.main(out_queue=q1, quiet=True, run_id=run_id),
-                matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm),
-                tuner.main(in_queue=q2, out_queue=q3, quiet=True),
-                _track_results(q3, results_dir),
-            )
+        with Live(_make_status_table("—", "—"), console=console, refresh_per_second=4) as live:
+            if skip_matcher:
+                await scraper.main(quiet=True, run_id=run_id, on_company_start=on_company_start)
+                await q3.put(None)
+                await _track_results(q3, results_dir)
+            elif skip_tuner:
+                q1: asyncio.Queue = asyncio.Queue()
+                q2: asyncio.Queue = asyncio.Queue()
+                await asyncio.gather(
+                    scraper.main(out_queue=q1, quiet=True, run_id=run_id, on_company_start=on_company_start),
+                    matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm, on_job_score=on_job_score),
+                    _bypass_tuner(q2, q3),
+                    _track_results(q3, results_dir),
+                )
+            else:
+                q1: asyncio.Queue = asyncio.Queue()
+                q2: asyncio.Queue = asyncio.Queue()
+                await asyncio.gather(
+                    scraper.main(out_queue=q1, quiet=True, run_id=run_id, on_company_start=on_company_start),
+                    matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm, on_job_score=on_job_score),
+                    tuner.main(in_queue=q2, out_queue=q3, quiet=True),
+                    _track_results(q3, results_dir),
+                )
         logger.info("Pipeline complete — run %s", run_id)
     except Exception:
         logger.exception("Pipeline failed — run %s", run_id)

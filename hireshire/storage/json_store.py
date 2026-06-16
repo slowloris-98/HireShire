@@ -18,6 +18,7 @@ class CompanyResult:
         self.job_count: int = 0
         self.error: Optional[str] = None
         self.jobs: list[dict] = []
+        self.fetch_time_s: Optional[float] = None
 
 
 class RunStore:
@@ -27,20 +28,22 @@ class RunStore:
         self.run_id = run_id
         self._results: list[CompanyResult] = []
 
-    def save_company(self, board_token: str, jobs: list[Job]) -> None:
+    def save_company(self, board_token: str, jobs: list[Job], fetch_time_s: Optional[float] = None) -> None:
         result = CompanyResult(board_token)
         result.job_count = len(jobs)
         result.jobs = [job.model_dump(mode="json") for job in jobs]
+        result.fetch_time_s = fetch_time_s
         self._results.append(result)
 
         out_path = self.run_dir / f"{board_token}.json"
         out_path.write_text(json.dumps(result.jobs, indent=2, default=str), encoding="utf-8")
         logger.info("Saved %d jobs for %s -> %s", len(jobs), board_token, out_path)
 
-    def record_error(self, board_token: str, status: str, error: str) -> None:
+    def record_error(self, board_token: str, status: str, error: str, fetch_time_s: Optional[float] = None) -> None:
         result = CompanyResult(board_token)
         result.status = status
         result.error = error
+        result.fetch_time_s = fetch_time_s
         self._results.append(result)
 
     def save_manifest(self, started_at: datetime) -> None:
@@ -52,6 +55,7 @@ class RunStore:
             companies[r.board_token] = {
                 "status": r.status,
                 "job_count": r.job_count,
+                "fetch_time_s": round(r.fetch_time_s, 2) if r.fetch_time_s is not None else None,
                 "error": r.error,
                 "jobs": r.jobs,
             }

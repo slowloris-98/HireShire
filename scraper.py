@@ -8,6 +8,7 @@ and skipped on subsequent runs. Run with:
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -62,6 +63,7 @@ async def main(
     out_queue: asyncio.Queue | None = None,
     quiet: bool = False,
     run_id: str | None = None,
+    on_company_start=None,
 ) -> None:
     if not quiet:
         logging.basicConfig(
@@ -151,17 +153,18 @@ async def main(
                 task = progress.add_task("Scraping companies...", total=total_companies)
 
                 async def scrape_one(company, scraper_instance, token, platform):
-                    progress.update(task, description=f"[cyan]{company.name}[/cyan]")
+                    t0 = time.monotonic()
                     try:
                         jobs = await asyncio.wait_for(
                             scraper_instance.fetch_all(token),
                             timeout=settings.company_timeout_s,
                         )
+                        elapsed = time.monotonic() - t0
                         if cutoff:
                             jobs = [j for j in jobs if j.updated_at >= cutoff]
                         if location_terms:
                             jobs = [j for j in jobs if _matches_location(j, location_terms)]
-                        store.save_company(token, jobs)
+                        store.save_company(token, jobs, fetch_time_s=elapsed)
                         if out_queue is not None:
                             await out_queue.put((token, jobs))
                         async with lock:
@@ -175,23 +178,27 @@ async def main(
                         if out_queue is not None:
                             await out_queue.put((token, []))
                     except asyncio.TimeoutError:
+                        elapsed = time.monotonic() - t0
                         msg = f"timeout after {settings.company_timeout_s}s"
                         logger.warning("Scrape timed out: %s — skipping", company.name)
-                        store.record_error(token, "timeout", msg)
+                        store.record_error(token, "timeout", msg, fetch_time_s=elapsed)
                         if out_queue is not None:
                             await out_queue.put((token, []))
                         async with lock:
                             counters["errors"] += 1
                             errors_detail.append((company.name, msg))
                     except Exception as exc:
+                        elapsed = time.monotonic() - t0
                         msg = str(exc)
-                        store.record_error(token, "error", msg)
+                        store.record_error(token, "error", msg, fetch_time_s=elapsed)
                         logger.exception("Failed to scrape %s", company.name)
                         async with lock:
                             counters["errors"] += 1
                             errors_detail.append((company.name, msg))
                     finally:
                         progress.advance(task)
+                        if on_company_start:
+                            on_company_start(company.name)
 
                 gh_tasks = [scrape_one(c, greenhouse_scraper, c.greenhouse_token, "greenhouse") for c in greenhouse_companies]
                 lv_tasks = [scrape_one(c, lever_scraper, c.lever_token, "lever") for c in lever_companies]
