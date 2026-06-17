@@ -9,3 +9,7 @@ once pipeline is finished the final pipeline json / csv should be accesible from
 
 have the matcher env provider also in the config
 
+add evals:
+1. Review the tuned resume LLM-as-a-judge
+2. Check mail and look for conversion rate?
+
