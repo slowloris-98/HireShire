@@ -13,8 +13,8 @@ settings:
   # Per-pass overrides — leave commented out to use LLM_PROVIDER env var + model above.
   evaluator_provider: openai           # cheap/fast model is fine for critique
   evaluator_model: gpt-5-nano
-  optimizer_provider: openai        # selector/injector: fast API call returning JSON
-  optimizer_model: gpt-5-nano
+  optimizer_provider: anthropic        # selector/injector: fast API call returning JSON. Choose from: gemini, openai, anthropic, claude_code
+  optimizer_model: claude-sonnet-4-6
 
   max_jd_chars: 12000
   max_tex_chars: 15000

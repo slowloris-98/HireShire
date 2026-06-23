@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class MatcherSettings(BaseModel):
     threshold: int = 70
     concurrency: int = 1
+    provider: str | None = None  # None = fall back to LLM_PROVIDER env var
     model: str = "gemini-2.0-flash"
     max_content_chars: int = 8000
     resume_path: str = "resume.pdf"

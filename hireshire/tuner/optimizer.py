@@ -328,6 +328,10 @@ class SelectionResult(BaseModel):
     selected_work: str
     section_order: list[str] = ["projects", "work"]
     keyword_adjustments: dict[str, list[str | None]] = {}
+    # Enrichment selections (all optional; None/invalid → assembler falls back to default behavior)
+    summary_variant: str | None = None
+    skills_rows: list[dict] | None = None
+    catch_domain: str | None = None
 
 
 @dataclass
@@ -351,15 +355,17 @@ class ResumeOptimizer:
         critique: EvaluatorResult,
         projects: dict[str, dict],
         template_path: str,
+        assets: dict | None = None,
     ) -> OptimizeResult | None:
+        assets = assets or {}
         logger.info("Selecting projects for job %s/%s", job.board_token, job.job_id)
-        prompt = self._build_selection_prompt(job, critique, projects)
+        prompt = self._build_selection_prompt(job, critique, projects, assets)
         MAX_SELECTOR_RETRIES = 3
         selection = None
         for attempt in range(MAX_SELECTOR_RETRIES):
             try:
                 raw = await self._backend.call(prompt, SELECTOR_SYSTEM_PROMPT)
-                selection = self._parse_selection(raw, projects, job.job_id)
+                selection = self._parse_selection(raw, projects, job.job_id, assets)
                 break
             except Exception as exc:
                 logger.warning(
@@ -379,12 +385,18 @@ class ResumeOptimizer:
             selected_work_id=selection.selected_work,
             section_order=selection.section_order,
             keyword_adjustments=selection.keyword_adjustments,
+            skills=assets.get("skills"),
+            summaries=assets.get("summaries"),
+            summary_variant=selection.summary_variant,
+            skills_rows=selection.skills_rows,
+            catch_domain=selection.catch_domain,
         )
         return OptimizeResult(tex=tex, selection=selection)
 
     def _parse_selection(
-        self, raw: str, projects: dict[str, dict], job_id: str
+        self, raw: str, projects: dict[str, dict], job_id: str, assets: dict | None = None
     ) -> SelectionResult:
+        assets = assets or {}
         cleaned = _strip_fences(raw)
         data = json.loads(cleaned)
         result = SelectionResult.model_validate(data)
@@ -412,14 +424,67 @@ class ResumeOptimizer:
                 seen.add(p)
                 clean.append(p)
         result.selected_projects = clean
+
+        # --- Adjusted-bullet dash guard: revert any rephrase that introduced dash punctuation ---
+        for pid, bullets in (result.keyword_adjustments or {}).items():
+            for i, b in enumerate(bullets):
+                if b is not None and (" -- " in b or "—" in b):
+                    logger.info(
+                        "Reverting dash-violating keyword adjustment on %s bullet %d (job %s)",
+                        pid, i, job_id,
+                    )
+                    bullets[i] = None
+
+        # --- Enrichment validation against the option pools ---
+        result.summary_variant = self._validate_summary(result.summary_variant, assets)
+        result.catch_domain = self._validate_catch(result.catch_domain, result.selected_projects, projects)
+        result.skills_rows = self._clean_skills_rows(result.skills_rows, assets.get("skills") or {})
         return result
+
+    @staticmethod
+    def _validate_summary(variant: str | None, assets: dict) -> str | None:
+        summaries = assets.get("summaries") or {}
+        return variant if variant in summaries else None
+
+    @staticmethod
+    def _validate_catch(
+        catch_domain: str | None, selected_projects: list[str], projects: dict[str, dict]
+    ) -> str | None:
+        if not catch_domain or "agentic_bmc" not in selected_projects:
+            return None
+        catches = (projects.get("agentic_bmc", {}).get("catch_bullets") or {})
+        return catch_domain if catch_domain in catches else None
+
+    @staticmethod
+    def _clean_skills_rows(rows: list[dict] | None, skills: dict) -> list[dict] | None:
+        """Keep only label_options labels and pool items; drop the rest. None → assembler default."""
+        if not rows:
+            return None
+        labels = set(skills.get("label_options") or [])
+        pool = skills.get("pool") or []
+        pool_lower = {item.lower(): item for item in pool}
+        cleaned: list[dict] = []
+        for row in rows[:3]:
+            if not isinstance(row, dict):
+                continue
+            label = row.get("label")
+            if labels and label not in labels:
+                continue
+            raw_items = row.get("items")
+            tokens = raw_items if isinstance(raw_items, list) else str(raw_items or "").split(",")
+            kept = [pool_lower[t.strip().lower()] for t in tokens if t.strip().lower() in pool_lower]
+            if label and kept:
+                cleaned.append({"label": label, "items": ", ".join(kept)})
+        return cleaned or None
 
     def _build_selection_prompt(
         self,
         job: Job,
         critique: EvaluatorResult,
         projects: dict[str, dict],
+        assets: dict | None = None,
     ) -> str:
+        assets = assets or {}
         jd = (job.content_text or "")[:self._settings.max_jd_chars]
 
         years = critique.years_experience_required
@@ -457,5 +522,28 @@ class ResumeOptimizer:
             f"### Available Entries\n{roster}",
             f"### Bullet Counts (for keyword_adjustments array lengths)\n{bullet_counts}",
         ]
+
+        # --- Enrichment option pools (selector picks keys/items from these only) ---
+        skills = assets.get("skills") or {}
+        summaries = assets.get("summaries") or {}
+        if summaries:
+            sections.append(
+                "### Summary Archetypes (pick ONE key for summary_variant, or null)\n"
+                + "\n".join(f"  - {k}" for k in summaries)
+            )
+        if skills:
+            labels = ", ".join(skills.get("label_options", []))
+            pool = ", ".join(skills.get("pool", []))
+            sections.append(
+                "### Skills Pool (for skills_rows — up to 3 rows)\n"
+                f"Allowed labels: {labels}\n"
+                f"Allowed items (use ONLY these; Languages row is fixed automatically): {pool}"
+            )
+        catches = (projects.get("agentic_bmc", {}).get("catch_bullets") or {})
+        if catches:
+            sections.append(
+                "### Catch Domains (set catch_domain ONLY if agentic_bmc is selected, else null)\n"
+                + "\n".join(f"  - {k}" for k in catches)
+            )
         return "\n\n".join(sections)
 

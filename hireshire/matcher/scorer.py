@@ -266,7 +266,7 @@ _BACKENDS: dict[str, type] = {
 
 
 def make_backend(settings: MatcherSettings, sem: asyncio.Semaphore) -> LLMBackend:
-    provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
+    provider = (settings.provider or os.environ.get("LLM_PROVIDER", "gemini")).lower()
     cls = _BACKENDS.get(provider)
     if cls is None:
         raise ValueError(
