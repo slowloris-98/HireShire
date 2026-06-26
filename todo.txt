@@ -1,5 +1,12 @@
+update the slugs from the repo
+
 once pipeline is finished the final pipeline json / csv should be accesible from my phone
 
 matcher should be a local llm, saves cost.
     - can I fine tune an slm for this task??
+    - use the title to reject
+    - TRM/SLM fine tuning
+    - RLHF
+
+- maybe use n8n
 
