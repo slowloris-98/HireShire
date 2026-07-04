@@ -15,3 +15,7 @@ matcher should be a local llm, saves cost.
 
 - maybe use n8n
 
+add evals:
+1. Review the tuned resume LLM-as-a-judge
+2. Check mail and look for conversion rate?
+
