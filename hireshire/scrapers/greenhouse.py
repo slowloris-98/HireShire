@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from hireshire.http_client import make_retry_decorator
 from hireshire.models.job import ApplicationQuestion, Department, Job, Location, Office
 from hireshire.scrapers.base import AbstractScraper
+from hireshire.scrapers.exceptions import SlugNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -121,8 +122,7 @@ class GreenhouseScraper(AbstractScraper):
                 response = await self._get(url)
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 404:
-                    logger.warning("Board token %r not found on Greenhouse", board_token)
-                    return []
+                    raise SlugNotFoundError("greenhouse", board_token) from exc
                 raise
 
             data = response.json()

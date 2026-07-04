@@ -28,7 +28,7 @@ from rich.table import Table
 from hireshire.matcher.scorer import MatchResult
 from hireshire.models.job import Job, Location
 from hireshire.tuner.config import load_tuner_config
-from hireshire.tuner.assembler import assemble_resume, load_projects
+from hireshire.tuner.assembler import assemble_resume, load_projects, load_resume_assets
 from hireshire.tuner.evaluator import ResumeEvaluator, make_evaluator_backend
 from hireshire.tuner.loader import load_shortlisted
 from hireshire.tuner.optimizer import ResumeOptimizer, make_optimizer_backend
@@ -79,10 +79,12 @@ async def _process_job(
     projects: dict,
     template_path: str,
     settings,
+    assets: dict | None = None,
     force: bool = False,
     quiet: bool = False,
 ) -> str:
     """Run the two-pass tune for one job. Returns 'tuned', 'skipped', or 'error'."""
+    assets = assets or {}
     if not force and store.is_done(job.job_id):
         logger.info("Skipping already-tuned job %s", job.job_id)
         store.record_skip()
@@ -97,12 +99,28 @@ async def _process_job(
     if not critique.job_id:
         critique = critique.model_copy(update={"job_id": job.job_id})
 
+    # Hard compatibility gate: discard fundamental mismatches that slipped past the matcher
+    # (wrong field or experience demand far beyond the candidate). The optimizer is skipped.
+    if critique.reject:
+        logger.info(
+            "Rejecting incompatible job %s/%s: %s",
+            job.board_token, job.job_id, critique.reject_reason or "no reason given",
+        )
+        store.save_rejection(
+            job_id=job.job_id,
+            job_description=job.content_text or "",
+            critique=critique,
+        )
+        store.record_skip()
+        return "skipped"
+
     # Pass 2: Project selection + keyword injection → code-assembled LaTeX
     optimize_result = await optimizer.optimize(
         job=job,
         critique=critique,
         projects=projects,
         template_path=template_path,
+        assets=assets,
     )
     if optimize_result is None:
         store.record_error()
@@ -118,15 +136,13 @@ async def _process_job(
         optimized_tex=optimized_tex,
     )
 
-    # Trim phase 1: drop least-relevant project (last in LLM-ordered list) while > 2 and overflowing
+    # Two-directional fit: trim when overflowing, fill when the page is too sparse.
     active_project_ids = list(selection.selected_projects)
-    pages = store.compile_pdf(job_dir)
     bullet_limits: dict[str, int] = {}
+    include_summary = bool(selection.summary_variant)
 
-    while pages > 1 and len(active_project_ids) > 2:
-        dropped = active_project_ids.pop()  # last = least relevant per LLM ordering
-        logger.info("Trim: dropping least-relevant project %s", dropped)
-        optimized_tex = assemble_resume(
+    def _assemble() -> str:
+        return assemble_resume(
             template_path=template_path,
             projects=projects,
             selected_project_ids=active_project_ids,
@@ -134,12 +150,32 @@ async def _process_job(
             section_order=selection.section_order,
             keyword_adjustments=selection.keyword_adjustments,
             bullet_limits=bullet_limits,
+            skills=assets.get("skills"),
+            summaries=assets.get("summaries"),
+            summary_variant=selection.summary_variant,
+            skills_rows=selection.skills_rows,
+            catch_domain=selection.catch_domain,
+            include_summary=include_summary,
         )
-        store.update_tex(job_dir, optimized_tex)
-        pages = store.compile_pdf(job_dir)
 
-    # Trim phase 2: fall back to per-bullet removal if still overflowing
-    if pages > 1:
+    def _recompile() -> "object":
+        store.update_tex(job_dir, _assemble())
+        return store.compile_pdf(job_dir)
+
+    metrics = store.compile_pdf(job_dir)
+
+    # --- Overflow direction: summary → least-relevant project → bottom bullets ---
+    if metrics.pages > 1 and include_summary:
+        logger.info("Trim: dropping optional summary")
+        include_summary = False
+        metrics = _recompile()
+
+    while metrics.pages > 1 and len(active_project_ids) > 2:
+        dropped = active_project_ids.pop()  # last = least relevant per LLM ordering
+        logger.info("Trim: dropping least-relevant project %s", dropped)
+        metrics = _recompile()
+
+    if metrics.pages > 1:
         selected_ids = [
             pid for pid in (active_project_ids + [selection.selected_work])
             if pid in projects
@@ -152,26 +188,37 @@ async def _process_job(
         sorted_ids = sorted(selected_ids, key=lambda pid: len(projects[pid].get("bullets", [])), reverse=True)
 
         for pid in sorted_ids:
-            while _count(pid) > 0 and pages > 1:
+            while _count(pid) > 0 and metrics.pages > 1:
                 bullet_limits[pid] = _count(pid) - 1
                 logger.info("Trim: removing last bullet from %s (now %d)", pid, bullet_limits[pid])
-
-                optimized_tex = assemble_resume(
-                    template_path=template_path,
-                    projects=projects,
-                    selected_project_ids=active_project_ids,
-                    selected_work_id=selection.selected_work,
-                    section_order=selection.section_order,
-                    keyword_adjustments=selection.keyword_adjustments,
-                    bullet_limits=bullet_limits,
-                )
-                store.update_tex(job_dir, optimized_tex)
-                pages = store.compile_pdf(job_dir)
-            if pages <= 1:
+                metrics = _recompile()
+            if metrics.pages <= 1:
                 break
 
-    if pages > 1 and not quiet:
-        console.print(f"[yellow]Warning: {job.job_id} is {pages} page(s) after trim[/yellow]")
+    # --- Underflow direction: page fits but is sparse → enable the summary to fill it ---
+    SPARSE_MARGIN_PT = 45.0  # bottom margin above this means the page looks half-empty
+    if (
+        metrics.pages == 1
+        and metrics.bottom_margin is not None
+        and metrics.bottom_margin > SPARSE_MARGIN_PT
+        and not include_summary
+        and selection.summary_variant
+    ):
+        logger.info(
+            "Fill: page sparse (bottom margin %.1fpt) — enabling summary",
+            metrics.bottom_margin,
+        )
+        include_summary = True
+        filled = _recompile()
+        if filled.pages > 1:  # summary tipped it to 2 pages — revert
+            logger.info("Fill: summary overflowed to 2 pages — reverting")
+            include_summary = False
+            metrics = _recompile()
+        else:
+            metrics = filled
+
+    if metrics.pages > 1 and not quiet:
+        console.print(f"[yellow]Warning: {job.job_id} is {metrics.pages} page(s) after trim[/yellow]")
 
     return "tuned"
 
@@ -240,13 +287,15 @@ async def main(
     bullets_path = Path(settings.projects_bullets_path)
     if bullets_path.exists():
         projects = load_projects(bullets_path)
+        assets = load_resume_assets(bullets_path)
         if not quiet:
             console.print(
                 f"Projects bullets loaded: [green]{bullets_path}[/green] "
-                f"({len(projects)} entries)"
+                f"({len(projects)} entries, {len(assets.get('summaries', {}))} summaries)"
             )
     else:
         projects = {}
+        assets = {}
         if not quiet:
             console.print(
                 f"[yellow]Projects bullets file not found: {bullets_path} — "
@@ -296,6 +345,7 @@ async def main(
                     projects=projects,
                     template_path=template_path,
                     settings=settings,
+                    assets=assets,
                     force=False,
                     quiet=quiet,
                 )
@@ -411,6 +461,7 @@ async def main(
                 projects=projects,
                 template_path=template_path,
                 settings=settings,
+                assets=assets,
                 force=args.force,
                 quiet=quiet,
             )

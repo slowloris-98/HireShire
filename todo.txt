@@ -1,13 +1,19 @@
-- Add more valid companies from greenhouse, ashby and lever.
-- Filter companies
-- A jobs shortlisted from matcher for a single days should be added in a csv with job link and folder link to resume if any.
-    - if no resume from tuner then atleast the entry should be there
-    
+- insert workday and other portals as well.
 
+
+update the slugs from the repo
 
 once pipeline is finished the final pipeline json / csv should be accesible from my phone
 
-have the matcher env provider also in the config
+
+- slm/trm for filtering the hundereds of hourly cron jobs.
+matcher should be a local llm, saves cost.
+    - can I fine tune an slm for this task??
+    - use the title to reject
+    - TRM/SLM fine tuning
+    - RLHF
+
+- maybe use n8n
 
 add evals:
 1. Review the tuned resume LLM-as-a-judge

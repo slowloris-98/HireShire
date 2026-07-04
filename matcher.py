@@ -61,6 +61,7 @@ async def main(
     quiet: bool = False,
     run_id: str | None = None,
     skip_llm: bool = False,
+    on_job_score=None,
 ) -> None:
     if not quiet:
         logging.basicConfig(
@@ -124,6 +125,8 @@ async def main(
     results: list[MatchResult] = []
 
     async def score_one(job) -> MatchResult:
+        if on_job_score:
+            on_job_score(job.board_token, job.title)
         try:
             result = await scorer.score(job, resume_text, run_id, projects_text)
         except Exception:
@@ -172,6 +175,8 @@ async def main(
                 results.extend(title_filtered)
                 if effective_skip_llm:
                     for j in to_score:
+                        if on_job_score:
+                            on_job_score(j.board_token, j.title)
                         r = _passthrough_result(j, run_id)
                         store.append_result(r)
                         if out_queue is not None:

@@ -24,6 +24,11 @@ class EvaluatorResult(BaseModel):
     weak_sections: list[str]
     overall_assessment: str
     years_experience_required: int | None = None
+    # Hard compatibility gate — set true only for fundamental, unfixable mismatches
+    # (wrong field, or experience demand far beyond the candidate). When true the tuner
+    # discards the job and the optimizer is never invoked.
+    reject: bool = False
+    reject_reason: str | None = None
 
 
 @runtime_checkable
