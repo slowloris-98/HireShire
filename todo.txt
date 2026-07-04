@@ -1,7 +1,12 @@
+- insert workday and other portals as well.
+
+
 update the slugs from the repo
 
 once pipeline is finished the final pipeline json / csv should be accesible from my phone
 
+
+- slm/trm for filtering the hundereds of hourly cron jobs.
 matcher should be a local llm, saves cost.
     - can I fine tune an slm for this task??
     - use the title to reject
