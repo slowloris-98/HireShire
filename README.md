@@ -20,7 +20,7 @@ Shared across all phases: `hireshire/models/`, `hireshire/storage/`.
 ## Data Flow
 
 ```
-config/scraper.yaml
+config/scraper.yaml  +  config/{greenhouse,ashby,lever}_companies.json  −  config/bad_slugs.json
         │
         ▼
 python scraper.py  →  data/scraped/<run_id>/{company}.json
@@ -73,7 +73,7 @@ Also set `LLM_PROVIDER` to the provider you want to use (defaults to `gemini`).
 
 ### 3. Place your resume
 
-Put your resume PDF at `data/resume.pdf` and update `resume_path` in `config/matcher.yaml` and `config/applier.yaml`.
+Put your resume PDF where `resume_path` in `config/matcher.yaml` and `config/applier.yaml` points (the shipped configs use `data/resume_projects/Udayan_Resume.pdf`), or update those keys to your own location.
 
 For Phase 3 (Tuner), the pipeline needs three files under `data/resume_projects/`:
 - `Udayan_Resume.tex` — your full resume LaTeX source (read by the Evaluator)
@@ -82,33 +82,66 @@ For Phase 3 (Tuner), the pipeline needs three files under `data/resume_projects/
 
 Update the paths in `config/tuner.yaml` if you store these elsewhere.
 
+> Note: `data/resume_projects/` and the pipeline output directories are gitignored — they hold personal data. See [Project Structure](#project-structure) for the full list.
+
 ---
 
 ## Phase 1: Scraper
 
-Fetches open job listings from three job board APIs: **Greenhouse**, **Ashby**, and **Lever**. The scraper auto-detects which backend to use based on the token key present in each company entry.
+Fetches open job listings from three job board APIs: **Greenhouse**, **Ashby**, and **Lever**. The scraper auto-detects which backend to use based on which JSON slug list a company came from.
+
+### Company slug lists — `config/{ashby,greenhouse,lever}_companies.json`
+
+Company slugs are **not** stored in `scraper.yaml`. Each board has its own JSON file holding a flat array of board tokens (slugs), loaded by `hireshire/config.py`:
+
+```json
+// config/greenhouse_companies.json  →  job-boards.greenhouse.io/{slug}/jobs
+["stripe", "anthropic", "figma", ...]
+```
+
+```json
+// config/ashby_companies.json       →  jobs.ashbyhq.com/{slug}
+// config/lever_companies.json        →  jobs.lever.co/{slug}
+```
+
+The lists are large (currently ~8.3k Greenhouse, ~4.4k Lever, ~3.2k Ashby slugs). Add a company by appending its slug to the matching file.
+
+### Bad-slug tracking — `config/bad_slugs.json`
+
+Because the slug lists are scraped in bulk, many entries are stale or invalid. When a slug returns a genuine 404 (Greenhouse/Ashby) or `{"ok": false}` (Lever), the scraper raises `SlugNotFoundError` and records the slug in `config/bad_slugs.json`, keyed by platform:
+
+```json
+{ "ashby": ["11x", ...], "greenhouse": [...], "lever": [...] }
+```
+
+On every subsequent run these known-bad slugs are filtered out **before** any HTTP call, so the bad list is self-healing and the run gets faster over time. Re-validate the list with the helper script:
+
+```bash
+python scripts/verify_bad_slugs.py                 # report only (no writes)
+python scripts/verify_bad_slugs.py --prune         # remove slugs that are reachable again
+python scripts/verify_bad_slugs.py --platform greenhouse   # limit to one board
+```
+
+A slug stays bad only if it still raises `SlugNotFoundError`; if `fetch_all()` succeeds (even with zero jobs) it is reported as *recoverable* and pruned with `--prune`. Transient errors (timeout/5xx/network) are reported as *inconclusive* and never pruned.
 
 ### Configuration — `config/scraper.yaml`
 
+`scraper.yaml` now holds only run settings — no companies:
+
 ```yaml
 settings:
-  concurrency: 10          # parallel requests
-  max_age_hours: 6         # only keep jobs updated in the last N hours (remove for all)
-  location_filter:         # case-insensitive substring match; remove or leave empty for all locations
+  concurrency: 20          # parallel company fetches (semaphore)
+  request_timeout_s: 3000  # per-HTTP-request timeout
+  retry_attempts: 3        # per-request retries (on top of the shared client's backoff)
+  company_timeout_s: 30000 # max seconds to wait for one company before skipping it
+  max_age_hours: 24        # only keep jobs updated in the last N hours; remove to fetch all
+  location_filter:         # case-insensitive substring match; remove or leave empty for all
     - "united states"
     - "remote"
     - "india"
-
-companies:
-  - name: Stripe
-    greenhouse_token: stripe       # Greenhouse: job-boards.greenhouse.io/{token}/jobs
-  - name: Linear
-    ashby_token: linear            # Ashby: jobs.ashbyhq.com/{token}
-  - name: Spotify
-    lever_token: spotify           # Lever: jobs.lever.co/{token}
 ```
 
-Each entry uses exactly one of `greenhouse_token`, `ashby_token`, or `lever_token`. The `location_filter` does a substring match against each job's location fields — all three APIs lack server-side location filtering, so it is applied client-side. Leave the list empty (or remove the key) to include all locations.
+The `location_filter` does a substring match against each job's location fields — all three APIs lack server-side location filtering, so it is applied client-side. `max_age_hours` prunes jobs not updated recently (Lever also applies it server-side where possible). Leave the list empty (or remove the key) to include all locations.
 
 ### Run
 
@@ -120,10 +153,12 @@ python scraper.py
 
 ```
 data/scraped/2026-05-29T23-24-43Z/
-├── manifest.json       # run summary: total jobs, per-company status
+├── manifest.json       # run summary: total jobs, per-company status, fetch times
 ├── anthropic.json      # array of Job objects
 └── stripe.json
 ```
+
+Newly discovered bad slugs are appended to `config/bad_slugs.json` at the end of the run.
 
 ---
 
@@ -133,7 +168,10 @@ Scores every scraped job against your resume using an LLM, then shortlists jobs 
 
 ### LLM Provider
 
-Set `LLM_PROVIDER` in your `.env` to switch backends:
+The provider can be set two ways (the config key wins when present):
+
+- `provider` in `config/matcher.yaml` — `gemini` / `openai` / `anthropic`
+- `LLM_PROVIDER` in `.env` — used as the fallback when the config key is omitted/null
 
 ```
 LLM_PROVIDER=gemini      # default — requires GOOGLE_API_KEY
@@ -141,19 +179,21 @@ LLM_PROVIDER=openai      # requires OPENAI_API_KEY
 LLM_PROVIDER=anthropic   # requires ANTHROPIC_API_KEY
 ```
 
-Then set `model` in `config/matcher.yaml` to a model name for that provider (e.g. `gemini-2.0-flash`, `gpt-4o-mini`, `claude-haiku-4-5-20251001`).
+Then set `model` in `config/matcher.yaml` to a model name for that provider (e.g. `gemini-2.0-flash`, `gpt-5-nano`, `claude-haiku-4-5-20251001`).
 
 ### Configuration — `config/matcher.yaml`
 
 ```yaml
 settings:
-  threshold: 70              # min score (0–100) to shortlist
-  concurrency: 1             # parallel LLM calls (free tier: keep at 1)
-  model: gemini-2.0-flash    # model name for the chosen LLM_PROVIDER
-  request_interval_s: 13     # seconds between requests (13s ≈ 4.6 RPM; set to 0 on paid tier)
+  threshold: 80              # min score (0–100) to shortlist
+  concurrency: 8             # parallel LLM calls (free tier: keep at 1)
+  provider: openai           # gemini / openai / anthropic (omit/null → LLM_PROVIDER env var)
+  model: gpt-5-nano          # model name for the chosen provider
+  request_interval_s: 2      # seconds between requests (13s ≈ 4.6 RPM; set to 0 on paid tier)
   max_content_chars: 8000    # truncate job description before sending
-  resume_path: data/resume.pdf
-  projects_path: data/projects.md   # optional extra context appended to candidate profile
+  skip_llm: false            # true = skip scoring; all title-passing jobs are auto-shortlisted
+  resume_path: data/resume_projects/Udayan_Resume.pdf
+  projects_path: data/resume_projects/projects.md   # optional extra context appended to profile
   runs_dir: data/scraped
   matches_dir: data/matches
 
@@ -165,6 +205,7 @@ title_filter:
   exclude_keywords:          # title must contain none of these
     - principal
     - staff
+    - senior
 ```
 
 ### Run
@@ -174,6 +215,10 @@ python matcher.py
 ```
 
 Reads automatically from the most recent scraper run in `data/scraped/`. The `title_filter` pre-filters jobs by title before sending to the LLM, saving API calls. Writes results incrementally to `progress.jsonl` so a mid-run crash can be resumed.
+
+**Skip-LLM mode** — set `skip_llm: true` (or pass `--no-llm` to the orchestrator) to bypass scoring entirely: every job that passes the title filter is shortlisted with `relevance_score: 100` and `skip_reason: "llm_skipped"`. Useful for a zero-cost dry run of the full pipeline, or when the title filter alone is selective enough.
+
+**Cross-run dedup** — scored job IDs are persisted to `data/seen_jobs.json`. On later runs any job ID already in that set is skipped before the title filter or LLM, so recurring pipeline runs never re-score the same listing.
 
 ### Output — `data/matches/<run_id>/`
 
@@ -212,7 +257,7 @@ Two-pass LLM resume optimizer. For each shortlisted job:
 2. **Selector** — LLM reads the critique + a compact project roster (titles + descriptions only) and returns a lightweight `SelectionResult` JSON: which 2–3 projects to include and per-bullet keyword adjustments
 3. **Assembler** — pure Python substitutes the selected entries into a LaTeX template using pre-authored bullets from `projects_bullets.yaml` — no LLM generates LaTeX
 
-Compiles with `pdflatex`. If the output exceeds one page, a code-based bullet-removal loop trims one bullet at a time from the project with the most bullets and reassembles until it fits — no extra LLM calls.
+Compiles with `pdflatex`, then a code-based **two-directional fit** loop (no extra LLM calls) makes the resume fill exactly one page: on overflow it drops the summary, then the least-relevant projects, then bottom bullets one at a time; on a sparse single page it re-enables the summary to fill the space (reverting if that overflows).
 
 ### Configuration — `config/tuner.yaml`
 
@@ -221,20 +266,30 @@ settings:
   resume_tex_path: data/resume_projects/Udayan_Resume.tex         # full resume for evaluator (Pass 1)
   resume_template_path: data/resume_projects/resume_template.tex  # template for assembler (Pass 2)
   projects_bullets_path: data/resume_projects/projects_bullets.yaml  # pre-authored LaTeX bullets
+  projects_path: data/resume_projects/projects.md                 # legacy narrative (unused by optimizer)
   matches_dir: data/matches
+  runs_dir: data/scraped
   tuned_dir: data/tuned
 
-  model: gpt-4o-mini
+  model: gpt-4o-mini              # shared fallback when a per-pass override is unset
 
-  # Per-pass overrides (fall back to LLM_PROVIDER env var if unset)
+  # Per-pass overrides (fall back to model above / LLM_PROVIDER env var if unset)
   evaluator_provider: openai
   evaluator_model: gpt-5-nano
-  optimizer_provider: openai      # use "claude_code" to route through the local Claude CLI
-  optimizer_model: gpt-5-nano
+  optimizer_provider: anthropic   # gemini / openai / anthropic / claude_code (local Claude CLI)
+  optimizer_model: claude-sonnet-4-6
 
   max_jd_chars: 12000
   max_tex_chars: 15000
   request_interval_s: 5.0
+  claude_cli_timeout_s: 600       # subprocess timeout when optimizer_provider: claude_code
+```
+
+**Linting the bullet corpus** — the pre-authored bullets in `projects_bullets.yaml` are emitted verbatim, so they are validated once (no dash-as-punctuation, unique Accenture opening verbs, hard numbers) rather than per run:
+
+```bash
+python -m hireshire.tuner.lint                     # lint the default corpus
+pytest tests/test_projects_bullets.py              # same check, as a test
 ```
 
 ### Run
@@ -265,19 +320,29 @@ data/tuned/2026-05-29T23-24-43Z/
 
 ## Phase 4: Applier
 
-A **Claude Code skill** (`/apply`) that reads the latest pipeline results and fills out + submits job applications using Playwright MCP tools. Run after the Tuner so the optimized resume PDFs are ready — the skill only processes jobs with `tuner_status == "tuned"`.
+Phase 4 has two interchangeable implementations that share `config/applier.yaml`:
 
-> **Safety:** `dry_run: true` is the default in `config/applier.yaml`. Set it to `false` only when ready to submit live applications.
+1. **`/apply` Claude Code skill** (recommended) — reads the latest pipeline results and fills + submits forms using Playwright MCP tools. Only processes jobs with `tuner_status == "tuned"` and a valid `resume_pdf`.
+2. **`python applier.py`** — a standalone `browser-use` agent entrypoint that reads the latest **matches** run directly. Useful outside Claude Code.
+
+Run either after the Tuner so the optimized resume PDFs are ready.
+
+> **Safety:** `dry_run` gates live submission — when `true`, the applier fills forms but never clicks submit. Verify the value in `config/applier.yaml` before running.
 
 ### Configuration — `config/applier.yaml`
 
 ```yaml
 settings:
-  dry_run: true              # SAFETY: never submits when true
+  dry_run: false             # SAFETY: set true so forms are filled but never submitted
   headless: false            # show browser window while running
   inter_job_delay_s: 10      # seconds between applications
+  max_steps: 40              # max browser-use agent steps per job (applier.py only)
+  matches_dir: data/matches
   applied_dir: data/applied
+  runs_dir: data/scraped
+  resume_path: data/resume_projects/Udayan_Resume.pdf
   generate_cover_letter: true
+  model: gpt-4o-mini         # LLM for answer generation / browser agent (applier.py only)
 
   # Personal info filled into application forms
   first_name: Your
@@ -294,7 +359,15 @@ settings:
 
 Invoke the skill in Claude Code. It reads the latest `data/pipeline/*/pipeline_results.json`, skips jobs that are already in `applied.json`, and processes the remaining tuned jobs sequentially.
 
-The orchestrator can also trigger it automatically after each pipeline run:
+Or run the standalone `browser-use` entrypoint (reads the latest matches run instead of pipeline results):
+
+```bash
+python applier.py                    # apply from the latest matches run (dry_run from config)
+python applier.py --run-id <run_id>  # use a specific matches run
+python applier.py --dry-run          # override config — fill forms but never submit
+```
+
+The orchestrator can also trigger the `/apply` skill automatically after each pipeline run:
 
 ```bash
 python orchestrate.py --apply
@@ -342,6 +415,7 @@ python orchestrate.py --once       # run exactly once
 python orchestrate.py --interval 2 # every 2 hours instead of 4
 python orchestrate.py --no-tuner   # scraper + matcher only (skip resume tuning)
 python orchestrate.py --no-matcher # scraper only (skip scoring and tuning)
+python orchestrate.py --no-llm     # matcher shortlists all title-passing jobs (no LLM scoring)
 python orchestrate.py --apply      # invoke /apply skill after each run
 ```
 
@@ -370,28 +444,43 @@ HireShire/
 ├── scraper.py              # Phase 1 entrypoint
 ├── matcher.py              # Phase 2 entrypoint
 ├── tuner.py                # Phase 3 entrypoint
-├── applier.py              # Phase 4 entrypoint
+├── applier.py              # Phase 4 entrypoint (standalone browser-use agent)
 ├── orchestrate.py          # Pipeline orchestrator (runs phases 1–3 automatically)
 ├── requirements.txt
 ├── .env.example
 ├── config/
-│   ├── scraper.yaml        # Phase 1 config
-│   ├── matcher.yaml        # Phase 2 config
-│   ├── tuner.yaml          # Phase 3 config
-│   └── applier.yaml        # Phase 4 config
+│   ├── scraper.yaml               # Phase 1 run settings (no companies)
+│   ├── greenhouse_companies.json  # Greenhouse slug list
+│   ├── ashby_companies.json       # Ashby slug list
+│   ├── lever_companies.json       # Lever slug list
+│   ├── bad_slugs.json             # known-404 slugs, auto-skipped and appended each run
+│   ├── matcher.yaml               # Phase 2 config
+│   ├── tuner.yaml                 # Phase 3 config
+│   └── applier.yaml               # Phase 4 config
+├── scripts/
+│   └── verify_bad_slugs.py # re-validate config/bad_slugs.json (--prune / --platform)
+├── tests/
+│   └── test_projects_bullets.py   # pytest wrapper around the tuner bullet lint
 ├── data/
 │   ├── scraped/            # Phase 1 output (gitignored)
 │   ├── matches/            # Phase 2 output (gitignored)
 │   ├── tuned/              # Phase 3 output (gitignored)
 │   ├── applied/            # Phase 4 output (gitignored)
-│   └── pipeline/           # Orchestrator run summaries (gitignored)
+│   ├── pipeline/           # Orchestrator run summaries (gitignored)
+│   ├── resume_projects/    # Resume .tex / template / bullets (gitignored — personal)
+│   └── seen_jobs.json      # cross-run scored-job dedup set (gitignored)
 ├── logs/                   # Orchestrator logs (gitignored)
+├── .claude/
+│   ├── skills/apply.md     # Phase 4 as a Claude Code skill (/apply)
+│   └── commands/apply.md   # prompt the orchestrator's --apply flag feeds to `claude -p`
 └── hireshire/
+    ├── config.py            # Scraper config loader (settings + slug JSON files → AppConfig)
+    ├── http_client.py       # Shared HTTP client with retry/backoff
     ├── models/job.py        # Shared Job data model
     ├── storage/json_store.py
-    ├── http_client.py       # Shared HTTP client with retry/backoff
     ├── scrapers/
     │   ├── base.py
+    │   ├── exceptions.py    # SlugNotFoundError (drives bad-slug tracking)
     │   ├── greenhouse.py
     │   ├── ashby.py
     │   └── lever.py
@@ -399,13 +488,17 @@ HireShire/
     │   ├── config.py
     │   ├── resume.py        # PDF text extraction (pdfplumber)
     │   ├── loader.py
+    │   ├── prompts.py       # scorer system prompt (rubric)
     │   ├── scorer.py        # Gemini/OpenAI/Anthropic backends + MatchResult model
+    │   ├── seen.py          # cross-run job-ID dedup (data/seen_jobs.json)
+    │   ├── title_filter.py  # keyword pre-filter before LLM scoring
     │   └── store.py
     ├── tuner/
     │   ├── config.py
     │   ├── evaluator.py     # Pass 1: recruiter critique → EvaluatorResult
     │   ├── optimizer.py     # Pass 2: JSON project selector → SelectionResult
     │   ├── assembler.py     # code-assembles LaTeX from template + pre-authored bullets
+    │   ├── lint.py          # validates projects_bullets.yaml corpus
     │   ├── prompts.py       # system prompts for evaluator and selector
     │   ├── loader.py
     │   └── store.py         # PDF compilation with pdflatex

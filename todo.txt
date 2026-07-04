@@ -18,4 +18,3 @@ matcher should be a local llm, saves cost.
 add evals:
 1. Review the tuned resume LLM-as-a-judge
 2. Check mail and look for conversion rate?
-

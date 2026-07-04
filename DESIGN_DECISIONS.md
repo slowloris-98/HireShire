@@ -19,12 +19,15 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 | 7 | Seen jobs deduplication across runs | `hireshire/matcher/seen.py` |
 | 8 | Two-pass tuner (Evaluator → Optimizer) | `hireshire/tuner/evaluator.py`, `hireshire/tuner/optimizer.py` |
 | 9 | LaTeX resume with template substitution | `hireshire/tuner/assembler.py`, `data/resume_projects/` |
-| 10 | Two-phase code-only PDF trimming | `tuner.py` |
+| 10 | Two-directional code-only page fit (trim + fill) | `tuner.py` |
 | 11 | Keyword adjustment by bullet index | `hireshire/tuner/assembler.py` |
 | 12 | `ClaudeCodeOptimizerBackend` via CLI subprocess | `hireshire/tuner/optimizer.py` |
 | 13 | Applier as a Claude Code skill | `.claude/skills/apply.md` |
 | 14 | Orchestrator scheduling via `asyncio.sleep` | `orchestrate.py` |
 | 15 | Shared HTTP client with exponential backoff | `hireshire/http_client.py` |
+| 16 | Company slugs as bulk JSON lists (not inline YAML) | `hireshire/config.py`, `config/*_companies.json` |
+| 17 | Self-healing bad-slug tracking | `config/bad_slugs.json`, `hireshire/scrapers/exceptions.py`, `scripts/verify_bad_slugs.py` |
+| 18 | Skip-LLM matcher mode | `matcher.py`, `config/matcher.yaml` |
 
 ---
 
@@ -104,7 +107,7 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 
 **Context:** The orchestrator runs on a recurring schedule (default: every 4 hours). Job boards keep listings live for weeks. Without deduplication, every pipeline run would re-score and potentially re-apply to the same jobs.
 
-**Decision:** `hireshire/matcher/seen.py` maintains a persistent JSON set at `data/matches/seen_jobs.json`. The matcher adds each scored job's ID to this set. On subsequent runs, any job ID already in the set is skipped before reaching the title filter or LLM.
+**Decision:** `hireshire/matcher/seen.py` maintains a persistent JSON set at `data/seen_jobs.json` (the `SeenStore` path is derived as `matches_dir.parent / "seen_jobs.json"`, so it sits alongside the per-run `data/matches/` directories rather than inside any one of them). The matcher adds each scored job's ID to this set. On subsequent runs, any job ID already in the set is skipped before reaching the title filter or LLM.
 
 **Rationale:** Once a job has been scored and acted on (tuned + applied), there is no value in re-processing it. The seen set makes the matcher idempotent across runs.
 
@@ -138,17 +141,18 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 
 ---
 
-## 10. Two-Phase Code-Only PDF Trimming
+## 10. Two-Directional Code-Only Page Fit
 
-**Context:** After assembling the LaTeX, `pdflatex` may produce a PDF longer than one page depending on which projects were selected and how many bullets each has.
+**Context:** After assembling the LaTeX, `pdflatex` may produce a PDF that is either *longer* than one page (too many projects/bullets) or a *sparse* single page with a large empty bottom margin (too few) — both look unpolished. The exact outcome depends on which projects the optimizer selected and how many bullets each carries.
 
-**Decision:** Trimming is purely code-based with no additional LLM call. Two phases run in sequence:
-1. **Project removal:** Pop the least-relevant project (last in the optimizer's ranked list), reassemble, recompile. Repeat until one page or only two projects remain.
-2. **Bullet removal (fallback):** If still over one page, decrement bullet counts one at a time across projects (least relevant first) and recompile after each change.
+**Decision:** A purely code-based fit loop (no additional LLM call) reads the compiled PDF's page count and bottom margin after each compile and adjusts in whichever direction is needed:
 
-**Rationale:** An LLM trimming pass would be slow, non-deterministic, and hard to debug. The code loop is fast (each `pdflatex` compile takes ~1 second), fully deterministic, and produces the same output for the same input. The optimizer's project ranking already encodes relevance order, so dropping from the tail is semantically sound.
+- **Overflow (`pages > 1`)** — three ordered stages: (1) drop the optional summary block if present; (2) pop the least-relevant project (last in the optimizer's ranked list), reassemble, recompile, repeating until one page or only two projects remain; (3) as a final fallback, remove bottom bullets one at a time from the longest entry first (via per-project `bullet_limits`) until it fits.
+- **Underflow (one page but bottom margin > ~45 pt)** — the page is half-empty, so enable the summary block to fill it. If adding the summary tips it to two pages, revert.
 
-**Tradeoffs:** The trimming is greedy — it drops entire projects before removing individual bullets. A more sophisticated approach might interleave the two strategies. In practice, Phase 1 (project removal) handles most over-page cases, and Phase 2 is rarely needed.
+**Rationale:** An LLM trimming pass would be slow, non-deterministic, and hard to debug. The code loop is fast (each `pdflatex` compile takes ~1 second), fully deterministic, and produces the same output for the same input. The optimizer's project ranking already encodes relevance order, so dropping from the tail is semantically sound. Handling underflow as well as overflow means the output reliably fills exactly one page rather than merely staying under a page.
+
+**Tradeoffs:** Trimming is greedy — it drops the summary and whole projects before removing individual bullets. Each direction recompiles repeatedly, so a pathological input can trigger many `pdflatex` invocations. The summary toggle is the pivot for both directions (dropped first on overflow, added on underflow), so its content quality directly affects how often the page fits cleanly. The ~45 pt sparse-margin threshold is a hand-tuned constant.
 
 ---
 
@@ -186,6 +190,8 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 
 **Tradeoffs:** Non-deterministic behavior — different runs may navigate the same form slightly differently. Harder to unit-test than a Python Playwright script. Requires running inside Claude Code (cannot be invoked from a plain Python subprocess without wrapping it in a `claude -p` call, which is what the orchestrator's `--apply` flag does). Introduced in commit `b4afe87`.
 
+A parallel standalone entrypoint, `applier.py`, drives the same forms with a `browser-use` agent (`hireshire/applier/filler.py`) and reads the latest **matches** run instead of pipeline results. It exists for running Phase 4 outside Claude Code and shares `config/applier.yaml` with the skill, but is a separate implementation — the skill remains the primary path.
+
 ---
 
 ## 14. Orchestrator Scheduling via `asyncio.sleep`
@@ -209,3 +215,39 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 **Rationale:** DRY — no retry boilerplate per scraper. The `User-Agent` header transparently identifies the tool to job board operators. `follow_redirects=True` handles board redirects without per-scraper handling.
 
 **Tradeoffs:** A shared client means all scrapers get identical retry behavior, which may not be optimal — some boards tolerate higher request rates, others need longer backoffs. Per-scraper configuration would be more precise but adds complexity to the factory interface.
+
+---
+
+## 16. Company Slugs as Bulk JSON Lists (Not Inline YAML)
+
+**Context:** The original `config/scraper.yaml` listed each company inline as a `name` + one token key. That works for a curated list of a few dozen employers, but the project scaled to scraping *every* discoverable board on each platform — currently ~8.3k Greenhouse, ~4.4k Lever, and ~3.2k Ashby slugs. Fifteen thousand hand-formatted YAML mappings would be unreadable, slow to parse, and painful to diff.
+
+**Decision:** Company slugs moved out of `scraper.yaml` into three flat JSON arrays — `config/greenhouse_companies.json`, `config/ashby_companies.json`, `config/lever_companies.json` — each a plain list of board tokens. `hireshire/config.py` (`load_config`) reads `scraper.yaml` for `settings` only, then loads the three JSON files into `CompanyConfig` objects (setting the matching token field per platform) and exposes them via `greenhouse_companies` / `ashby_companies` / `lever_companies` properties. The `name` is set equal to the slug.
+
+**Rationale:** A flat JSON array of strings is the most compact representation for a large homogeneous list — trivial to generate programmatically, cheap to parse, and clean to diff when slugs are added or removed. Separating settings (YAML, human-edited) from the slug corpus (JSON, machine-managed) keeps each file's purpose clear. The `CompanyConfig` model still supports a `tags` field for future per-company metadata.
+
+**Tradeoffs:** Per-company display names are lost — `name == slug`, so console output shows raw tokens rather than pretty company names. The three-file split means a company is added to a specific board's file, and there is no validation that a slug belongs to the platform whose file it is in. The old inline-YAML `companies:` block is no longer read at all.
+
+---
+
+## 17. Self-Healing Bad-Slug Tracking
+
+**Context:** Bulk slug lists (decision #16) are sourced by scraping directories and inevitably contain thousands of invalid entries — companies that never had a board on that platform, renamed slugs, and defunct employers. Re-requesting all of them every run wastes time and hammers the APIs with guaranteed-404 traffic.
+
+**Decision:** Each scraper raises a typed `SlugNotFoundError` (`hireshire/scrapers/exceptions.py`) carrying `platform` + `token` when a slug returns a genuine 404 (Greenhouse/Ashby) or Lever's `{"ok": false}`. `scraper.py` catches it, collects the offending tokens, and persists them to `config/bad_slugs.json` keyed by platform. On every subsequent run, known-bad slugs are removed from the candidate set **before** any HTTP call. A separate `scripts/verify_bad_slugs.py` re-checks the list against the live APIs and prunes (with `--prune`) any slug that has become reachable again — distinguishing genuinely-bad (`SlugNotFoundError`), *recoverable* (`fetch_all` succeeds, even with zero jobs), and *inconclusive* (timeout/5xx/network, never pruned).
+
+**Rationale:** The list is self-healing in both directions: bad slugs accrete automatically during normal runs (no manual curation), and the verify script provides a controlled way to recover slugs that were transiently or wrongly flagged. Only a genuine "not found" signal — not a transient error — marks a slug bad, so a flaky network run doesn't poison the list. Runs get monotonically faster as dead slugs are filtered out up front.
+
+**Tradeoffs:** A slug that legitimately 404s only because a board is briefly misconfigured gets stuck on the bad list until `verify_bad_slugs.py --prune` is run manually — there is no automatic re-check cadence. `bad_slugs.json` is committed to the repo, so it doubles as shared state that can drift between branches (visible in the git history as frequent "bad slug" commits). The distinction between a real 404 and an ambiguous error lives in each scraper's parsing logic, which must correctly raise `SlugNotFoundError` only for true not-found cases.
+
+---
+
+## 18. Skip-LLM Matcher Mode
+
+**Context:** LLM scoring is the slowest and only paid step in Phases 1–2. Sometimes it isn't wanted: smoke-testing the full scrape → tune → apply plumbing, running when the title filter alone is selective enough, or operating with no API budget. Forcing an LLM call in those cases is pure waste.
+
+**Decision:** The matcher supports a passthrough mode via `skip_llm: true` in `config/matcher.yaml` or the orchestrator's `--no-llm` flag (the two are OR-ed into `effective_skip_llm`). In this mode no backend is constructed; every job that survives the title filter is emitted as a synthetic `MatchResult` with `relevance_score: 100`, `recommend: true`, and `skip_reason: "llm_skipped"`, then forwarded downstream exactly as a real shortlist would be.
+
+**Rationale:** Reuses the entire existing pipeline (title filter, seen-dedup, incremental storage, queue forwarding) with the scoring step swapped for a constant. The title filter becomes the sole selectivity mechanism, which is deterministic and free. The distinct `skip_reason` keeps skip-LLM shortlists auditable and separable from genuinely-scored ones in reporting.
+
+**Tradeoffs:** With scoring disabled, the `threshold` setting is meaningless and *everything* title-passing flows to the tuner — potentially a large batch of low-relevance jobs consuming tuner LLM calls. It is a blunt instrument: there is no middle ground between full LLM scoring and none. Auto-assigning `relevance_score: 100` means downstream consumers that sort or gate on score treat these as top matches, which is correct only if the operator understands the mode is active.

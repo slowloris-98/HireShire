@@ -19,8 +19,9 @@ Each phase is fully independent: its own entrypoint script, `hireshire/<phase>/`
 pip install -r requirements.txt
 playwright install chromium   # required for Phase 4 (Applier)
 
-# Phase 1: Scrape job listings
+# Phase 1: Scrape job listings (company slugs live in config/*_companies.json)
 python scraper.py
+python scripts/verify_bad_slugs.py --prune   # re-validate config/bad_slugs.json, drop recovered slugs
 
 # Phase 2: Score jobs against resume (auto-reads latest scraper run)
 python matcher.py
@@ -44,7 +45,15 @@ python orchestrate.py --once       # run exactly once
 python orchestrate.py --interval 2 # custom interval in hours
 python orchestrate.py --no-tuner   # scraper + matcher only (skip resume tuning)
 python orchestrate.py --no-matcher # scraper only (skip scoring and tuning)
+python orchestrate.py --no-llm     # matcher auto-shortlists all title-passing jobs (no LLM scoring)
 python orchestrate.py --apply      # invoke /apply skill after each pipeline run
+
+# Standalone applier (browser-use agent; reads latest matches run)
+python applier.py --dry-run
+
+# Lint the pre-authored resume bullet corpus
+python -m hireshire.tuner.lint
+pytest tests/test_projects_bullets.py
 ```
 
 ## Architecture
@@ -67,15 +76,19 @@ Orchestrator  → data/pipeline/<ts>/{pipeline_results.json, pipeline_results.cs
 
 **All four phases** use `asyncio.run(main())`. Concurrency and rate-limiting knobs live in each phase's YAML config.
 
-**Phase 2 (Matcher)** uses a `LLMBackend` Protocol in [hireshire/matcher/scorer.py](hireshire/matcher/scorer.py). Adding a new provider means implementing `score(job, resume_text) -> ScoringSchema`. The active backend is selected by the `LLM_PROVIDER` env var (`gemini` / `openai` / `anthropic`). A `title_filter` in `config/matcher.yaml` pre-filters jobs by title before LLM scoring (saves API calls). An optional `projects_path` markdown file is appended to the candidate profile for richer context (this key is also present in `config/tuner.yaml` but is no longer used by the tuner's optimizer — it has been superseded by `projects_bullets_path`). Results are written incrementally to `progress.jsonl` so a mid-run crash can be resumed without re-scoring already-processed jobs.
+**Phase 2 (Matcher)** uses a `LLMBackend` Protocol in [hireshire/matcher/scorer.py](hireshire/matcher/scorer.py). Adding a new provider means implementing `score(job, resume_text) -> ScoringSchema`. The active backend is selected by the `provider` key in `config/matcher.yaml`, falling back to the `LLM_PROVIDER` env var when that key is null/omitted (`gemini` / `openai` / `anthropic`). The scorer system prompt (the rubric) lives in [hireshire/matcher/prompts.py](hireshire/matcher/prompts.py). A `title_filter` in `config/matcher.yaml` pre-filters jobs by title before LLM scoring (saves API calls). Setting `skip_llm: true` (or the orchestrator's `--no-llm` flag) bypasses scoring entirely — every title-passing job is shortlisted with `relevance_score: 100` and `skip_reason: "llm_skipped"`. An optional `projects_path` markdown file is appended to the candidate profile for richer context (this key is also present in `config/tuner.yaml` but is no longer used by the tuner's optimizer — it has been superseded by `projects_bullets_path`). Results are written incrementally to `progress.jsonl` so a mid-run crash can be resumed without re-scoring already-processed jobs. Scored job IDs persist across runs in `data/seen_jobs.json` ([hireshire/matcher/seen.py](hireshire/matcher/seen.py)) so recurring pipeline runs never re-score the same listing.
 
 **Phase 3 (Tuner)** runs two sequential LLM passes per job:
 1. `ResumeEvaluator` — recruiter-perspective critique against the full resume LaTeX → `EvaluatorResult` Pydantic model
 2. `ResumeOptimizer` — compact JSON selector: reads critique + a project roster (titles/descriptions only) and returns a `SelectionResult` (which projects to include + per-bullet keyword adjustments). Then `Assembler` ([hireshire/tuner/assembler.py](hireshire/tuner/assembler.py)) substitutes selected entries into a LaTeX template via pure code using pre-authored bullets from `projects_bullets.yaml`.
 
-After assembly, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles with `pdflatex`. If the PDF exceeds one page, a code-based bullet-removal loop (in `tuner.py`) decrements bullet counts one at a time and reassembles until it fits — no LLM call involved in trimming. The tuner supports separate `evaluator_provider`/`optimizer_provider` backends (defaults to `LLM_PROVIDER`). Setting `optimizer_provider: claude_code` routes the selector call through a local Claude CLI subprocess instead of the API.
+After assembly, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles with `pdflatex`. A code-based **two-directional fit** loop (in `tuner.py`, no LLM involved) reads the PDF's page count and bottom margin and adjusts: on overflow it drops the summary, then the least-relevant projects, then bottom bullets one at a time; on a sparse single page (bottom margin > ~45 pt) it re-enables the summary to fill the page and reverts if that overflows. The tuner supports separate `evaluator_provider`/`optimizer_provider` backends (defaults to `LLM_PROVIDER`). Setting `optimizer_provider: claude_code` routes the selector call through a local Claude CLI subprocess instead of the API.
 
-**Phase 4 (Applier)** is a Claude Code skill (`.claude/skills/apply.md`, invoked as `/apply`). It reads `data/pipeline/<latest>/pipeline_results.json` and processes only jobs with `tuner_status == "tuned"` and a valid `resume_pdf`. For each job it uses Playwright MCP tools to navigate the form, fill identity fields from `config/applier.yaml`, upload the job-specific tuned resume PDF, optionally generate a cover letter, answer custom questions by reasoning from the resume, and submit (or skip if `dry_run: true`). Results are appended to `data/applied/applied.json`.
+**Phase 4 (Applier)** has two interchangeable implementations sharing `config/applier.yaml`:
+- **`/apply` Claude Code skill** (`.claude/skills/apply.md`, invoked as `/apply`) — reads `data/pipeline/<latest>/pipeline_results.json` and processes only jobs with `tuner_status == "tuned"` and a valid `resume_pdf`. For each job it uses Playwright MCP tools to navigate the form, fill identity fields from `config/applier.yaml`, upload the job-specific tuned resume PDF, optionally generate a cover letter, answer custom questions by reasoning from the resume, and submit (or skip if `dry_run: true`).
+- **`python applier.py`** — a standalone `browser-use` agent entrypoint ([hireshire/applier/filler.py](hireshire/applier/filler.py)) that reads the latest **matches** run directly and applies from there (`--run-id`, `--dry-run` flags). Runs without Claude Code.
+
+Both append records to `data/applied/applied.json`.
 
 ### Key Models
 
@@ -93,23 +106,27 @@ After assembly, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles wi
 ### Environment Variables
 
 Configured in `.env` (see `.env.example`):
-- `LLM_PROVIDER` — `gemini` / `openai` / `anthropic`
+- `LLM_PROVIDER` — `gemini` / `openai` / `anthropic`. This is the fallback; the matcher's `provider` key and the tuner's `evaluator_provider` / `optimizer_provider` keys override it per phase/pass.
 - `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` — whichever provider(s) are used
 - Tuner can use different providers for evaluator vs optimizer via `evaluator_provider` / `optimizer_provider` in `config/tuner.yaml`
 
 ### Scraper
 
-`config/scraper.yaml` supports three company entry types — use exactly one token key per company:
-- `greenhouse_token` → Greenhouse Job Board API
-- `ashby_token` → Ashby Job Board API
-- `lever_token` → Lever Job Postings API
+Company slugs are **not** in `config/scraper.yaml`. They live in three flat JSON arrays loaded by [hireshire/config.py](hireshire/config.py):
+- `config/greenhouse_companies.json` → Greenhouse Job Board API (`job-boards.greenhouse.io/{slug}/jobs`)
+- `config/ashby_companies.json` → Ashby Job Board API (`jobs.ashbyhq.com/{slug}`)
+- `config/lever_companies.json` → Lever Job Postings API (`jobs.lever.co/{slug}`)
+
+`load_config()` reads these into `CompanyConfig` objects (one token field set per company) and exposes `greenhouse_companies` / `ashby_companies` / `lever_companies` properties. `config/scraper.yaml` now holds only `settings` (`concurrency`, `request_timeout_s`, `retry_attempts`, `company_timeout_s`, `max_age_hours`, `location_filter`).
+
+The lists are large (~8k Greenhouse, ~4k Lever, ~3k Ashby) and bulk-sourced, so many slugs are invalid. When a slug 404s (Greenhouse/Ashby) or returns `{"ok": false}` (Lever), the scraper raises `SlugNotFoundError` ([hireshire/scrapers/exceptions.py](hireshire/scrapers/exceptions.py)) and records it in `config/bad_slugs.json`, keyed by platform. Known-bad slugs are filtered out **before** any HTTP call on every subsequent run, and newly discovered ones are appended when the run finishes — the list is self-healing. `scripts/verify_bad_slugs.py` re-validates the file against the live APIs (`--prune` removes slugs that are reachable again; `--platform` limits to one board; a slug stays bad only if it still raises `SlugNotFoundError`).
 
 The `location_filter` list does a case-insensitive substring match against `job.location.name` and `job.offices[].location`. All three APIs lack server-side location filtering, so this is applied client-side after fetching. Empty list = no filter.
 
 ### Rate Limiting
 
 Each phase manages its own throttling:
-- **Scraper**: semaphore via `settings.concurrency` in `config/scraper.yaml` (default 10)
+- **Scraper**: semaphore via `settings.concurrency` in `config/scraper.yaml` (default 10; currently 20), plus a per-company `company_timeout_s` watchdog
 - **Matcher**: semaphore + `request_interval_s` delay (default 13 s ≈ 4.6 RPM, safe for free-tier Gemini)
 - **Applier**: sequential, one form at a time, `inter_job_delay_s` between jobs
 - **Tuner**: sequential per job, `request_interval_s` between LLM calls
@@ -132,6 +149,6 @@ Each script's `main()` accepts optional `in_queue`, `out_queue`, and `quiet` par
 
 **Pipeline results** are written to `data/pipeline/<run_id>/pipeline_results.{json,csv}` each run. Every shortlisted job appears in the results regardless of tuner outcome — the `tuner_status` field (`"tuned"` / `"skipped"` / `"error"`) indicates what happened, and `resume_tex`/`resume_pdf` are `null` when tuning didn't complete.
 
-**Skip flags** — `--no-tuner` replaces the tuner with a passthrough that marks all jobs `tuner_status: "skipped"` and writes results with null resume fields. `--no-matcher` runs the scraper only and writes an empty results file.
+**Skip flags** — `--no-tuner` replaces the tuner with a passthrough that marks all jobs `tuner_status: "skipped"` and writes results with null resume fields. `--no-matcher` runs the scraper only and writes an empty results file. `--no-llm` keeps the matcher in the pipeline but skips its LLM scoring, so every title-passing job is shortlisted (auto-scored 100) and forwarded to the tuner.
 
 **`--apply` flag** — after each pipeline run completes, the orchestrator invokes the `/apply` Claude Code skill by running `claude -p --permission-mode auto` with the skill prompt from `.claude/commands/apply.md`. This is skipped when `--no-tuner` or `--no-matcher` are active (since tuned resumes are a prerequisite). Phase 4 can also be run manually by invoking `/apply` in Claude Code at any time.
