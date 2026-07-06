@@ -9,6 +9,8 @@ import asyncio
 import json
 import logging
 import time
+
+import httpx
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -19,16 +21,18 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn
 from hireshire.config import load_config
 from hireshire.http_client import build_client
 from hireshire.scrapers.ashby import AshbyScraper
-from hireshire.scrapers.exceptions import SlugNotFoundError
+from hireshire.scrapers.bamboohr import BambooHRScraper
+from hireshire.scrapers.exceptions import BoardBlockedError, SlugNotFoundError
 from hireshire.scrapers.greenhouse import GreenhouseScraper
 from hireshire.scrapers.lever import LeverScraper
+from hireshire.scrapers.workday import WorkdayScraper
 from hireshire.storage.json_store import RunStore
 
 logger = logging.getLogger(__name__)
 console = Console()
 
 BAD_SLUGS_PATH = Path("config/bad_slugs.json")
-_PLATFORMS = ("ashby", "greenhouse", "lever")
+_PLATFORMS = ("ashby", "greenhouse", "lever", "bamboohr", "workday")
 
 
 def _load_bad_slugs() -> dict[str, set[str]]:
@@ -80,8 +84,10 @@ async def main(
     ashby_companies = [c for c in config.ashby_companies if c.ashby_token not in bad_slugs["ashby"]]
     greenhouse_companies = [c for c in config.greenhouse_companies if c.greenhouse_token not in bad_slugs["greenhouse"]]
     lever_companies = [c for c in config.lever_companies if c.lever_token not in bad_slugs["lever"]]
+    bamboohr_companies = [c for c in config.bamboohr_companies if c.bamboohr_token not in bad_slugs["bamboohr"]]
+    workday_companies = [c for c in config.workday_companies if c.workday_token not in bad_slugs["workday"]]
 
-    if not greenhouse_companies and not lever_companies and not ashby_companies:
+    if not (greenhouse_companies or lever_companies or ashby_companies or bamboohr_companies or workday_companies):
         if not quiet:
             console.print("[yellow]No companies to scrape. All slugs may be in the bad-slugs list.[/yellow]")
         return
@@ -115,6 +121,10 @@ async def main(
             sources.append(f"[bold]{len(lever_companies)}[/bold] via Lever")
         if ashby_companies:
             sources.append(f"[bold]{len(ashby_companies)}[/bold] via Ashby")
+        if bamboohr_companies:
+            sources.append(f"[bold]{len(bamboohr_companies)}[/bold] via BambooHR")
+        if workday_companies:
+            sources.append(f"[bold]{len(workday_companies)}[/bold] via Workday")
         console.print(f"Fetching from {' + '.join(sources)}", end="")
         if total_skipped:
             console.print(f"  [dim]({total_skipped} known-bad slugs skipped)[/dim]")
@@ -122,21 +132,37 @@ async def main(
             console.print()
         console.print()
 
-    sem = asyncio.Semaphore(settings.concurrency)
     lock = asyncio.Lock()
     newly_bad: dict[str, list[str]] = {p: [] for p in _PLATFORMS}
 
     # Counters shared across tasks (mutated under lock)
-    counters = {"jobs": 0, "with_jobs": 0, "errors": 0, "not_found": 0}
+    counters = {"jobs": 0, "with_jobs": 0, "errors": 0, "not_found": 0, "blocked": 0}
     errors_detail: list[tuple[str, str]] = []  # (name, error message)
 
     try:
         async with build_client(settings.request_timeout_s) as client:
-            greenhouse_scraper = GreenhouseScraper(client, sem, settings.retry_attempts)
-            lever_scraper = LeverScraper(client, sem, settings.retry_attempts, cutoff=cutoff)
-            ashby_scraper = AshbyScraper(client, sem, settings.retry_attempts)
+            greenhouse_scraper = GreenhouseScraper(
+                client, settings.make_limiter("greenhouse"), settings.retry_attempts,
+                detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
+            )
+            lever_scraper = LeverScraper(client, settings.make_limiter("lever"), settings.retry_attempts, cutoff=cutoff)
+            ashby_scraper = AshbyScraper(client, settings.make_limiter("ashby"), settings.retry_attempts)
+            bamboohr_scraper = BambooHRScraper(
+                client, settings.make_limiter("bamboohr"), settings.retry_attempts,
+                detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
+            )
+            workday_scraper = WorkdayScraper(
+                client, settings.make_limiter("workday"), settings.retry_attempts, cutoff=cutoff,
+                detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
+            )
 
-            total_companies = len(greenhouse_companies) + len(lever_companies) + len(ashby_companies)
+            total_companies = (
+                len(greenhouse_companies)
+                + len(lever_companies)
+                + len(ashby_companies)
+                + len(bamboohr_companies)
+                + len(workday_companies)
+            )
             prog_ctx = (
                 Progress(
                     SpinnerColumn(),
@@ -152,12 +178,12 @@ async def main(
             with prog_ctx as progress:
                 task = progress.add_task("Scraping companies...", total=total_companies)
 
-                async def scrape_one(company, scraper_instance, token, platform):
+                async def scrape_one(company, scraper_instance, token, platform, timeout):
                     t0 = time.monotonic()
                     try:
                         jobs = await asyncio.wait_for(
                             scraper_instance.fetch_all(token),
-                            timeout=settings.company_timeout_s,
+                            timeout=timeout,
                         )
                         elapsed = time.monotonic() - t0
                         if cutoff:
@@ -177,13 +203,33 @@ async def main(
                             counters["not_found"] += 1
                         if out_queue is not None:
                             await out_queue.put((token, []))
+                    except BoardBlockedError as exc:
+                        # Access refused (WAF/edge). Not pruned — retried next run.
+                        elapsed = time.monotonic() - t0
+                        msg = f"blocked (HTTP {exc.status_code})"
+                        logger.warning("Blocked by %s — skipping (retried next run)", company.name)
+                        store.record_error(token, "blocked", msg, fetch_time_s=elapsed)
+                        if out_queue is not None:
+                            await out_queue.put((token, []))
+                        async with lock:
+                            counters["blocked"] += 1
                     except asyncio.TimeoutError:
                         elapsed = time.monotonic() - t0
-                        msg = f"timeout after {settings.company_timeout_s}s"
+                        msg = f"timeout after {timeout}s"
                         logger.warning("Scrape timed out: %s — skipping", company.name)
                         store.record_error(token, "timeout", msg, fetch_time_s=elapsed)
                         if out_queue is not None:
                             await out_queue.put((token, []))
+                        async with lock:
+                            counters["errors"] += 1
+                            errors_detail.append((company.name, msg))
+                    except httpx.HTTPStatusError as exc:
+                        # Expected-ish HTTP failure (e.g. 5xx after retries). Log
+                        # concisely — a full traceback here is noise at scale.
+                        elapsed = time.monotonic() - t0
+                        msg = f"HTTP {exc.response.status_code}"
+                        store.record_error(token, "error", msg, fetch_time_s=elapsed)
+                        logger.warning("Failed to scrape %s: %s", company.name, msg)
                         async with lock:
                             counters["errors"] += 1
                             errors_detail.append((company.name, msg))
@@ -200,10 +246,42 @@ async def main(
                         if on_company_start:
                             on_company_start(company.name)
 
-                gh_tasks = [scrape_one(c, greenhouse_scraper, c.greenhouse_token, "greenhouse") for c in greenhouse_companies]
-                lv_tasks = [scrape_one(c, lever_scraper, c.lever_token, "lever") for c in lever_companies]
-                as_tasks = [scrape_one(c, ashby_scraper, c.ashby_token, "ashby") for c in ashby_companies]
-                await asyncio.gather(*gh_tasks, *lv_tasks, *as_tasks)
+                async def run_board(companies, scraper_instance, token_attr, platform):
+                    """Drain one board's companies through a fixed pool of workers.
+
+                    Companies wait for a worker in an UNTIMED asyncio.Queue — the
+                    per-company timeout (a generous safety-net) only starts once a
+                    worker actually picks the company up, so queue-wait never counts
+                    against a company's budget. Concurrency per board is capped at
+                    `company_workers(platform)`, decoupled from the per-call limiter.
+                    """
+                    if not companies:
+                        return
+                    workers = max(1, settings.company_workers(platform))
+                    timeout = settings.company_timeout_s
+                    queue: asyncio.Queue = asyncio.Queue()
+                    for company in companies:
+                        queue.put_nowait(company)
+                    for _ in range(workers):
+                        queue.put_nowait(None)  # one shutdown sentinel per worker
+
+                    async def worker():
+                        while True:
+                            company = await queue.get()
+                            if company is None:
+                                return
+                            token = getattr(company, token_attr)
+                            await scrape_one(company, scraper_instance, token, platform, timeout)
+
+                    await asyncio.gather(*(worker() for _ in range(workers)))
+
+                await asyncio.gather(
+                    run_board(greenhouse_companies, greenhouse_scraper, "greenhouse_token", "greenhouse"),
+                    run_board(lever_companies, lever_scraper, "lever_token", "lever"),
+                    run_board(ashby_companies, ashby_scraper, "ashby_token", "ashby"),
+                    run_board(bamboohr_companies, bamboohr_scraper, "bamboohr_token", "bamboohr"),
+                    run_board(workday_companies, workday_scraper, "workday_token", "workday"),
+                )
 
         store.save_manifest(started_at)
     finally:
@@ -219,11 +297,19 @@ async def main(
 
     if not quiet:
         console.print("\n[bold]Results[/bold]")
-        zero_jobs = total_companies - counters["with_jobs"] - counters["errors"] - counters["not_found"]
+        zero_jobs = (
+            total_companies
+            - counters["with_jobs"]
+            - counters["errors"]
+            - counters["not_found"]
+            - counters["blocked"]
+        )
         console.print(f"  [green]✓[/green] {counters['with_jobs']} companies had jobs  ({counters['jobs']} total jobs)")
         console.print(f"  [dim]·[/dim] {zero_jobs} companies: 0 jobs")
         if counters["not_found"]:
             console.print(f"  [dim]+[/dim] {counters['not_found']} new bad slugs → [cyan]{BAD_SLUGS_PATH}[/cyan]")
+        if counters["blocked"]:
+            console.print(f"  [yellow]⊘[/yellow] {counters['blocked']} blocked (WAF/edge) — not pruned, retried next run")
         if counters["errors"]:
             console.print(f"  [red]✗[/red] {counters['errors']} errors")
             for name, msg in errors_detail:

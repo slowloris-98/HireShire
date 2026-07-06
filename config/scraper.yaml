@@ -1,11 +1,40 @@
 settings:
-  concurrency: 20
-  request_timeout_s: 3000
+  concurrency: 20  # fallback company-worker / limiter width for any board not listed below
+  request_timeout_s: 30  # per-call (httpx) timeout — the real per-API-call bound; floored at 10s
   retry_attempts: 3
-  company_timeout_s: 30000  # max seconds to wait for a single company before skipping it
+  company_timeout_s: 600  # SAFETY-NET backstop only (clock starts at worker pickup, not queue-wait);
+                          # the per-call request_timeout_s is the primary bound. Rarely fires.
   max_age_hours: 24  # only keep jobs updated in the last N hours; remove this line to fetch all
   location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
     - "united states"
     - "remote"
     - "india"
 
+  # Per-board count of in-flight company workers. Each board's queue is drained by this many
+  # long-lived workers; a company waiting its turn sits in an UNTIMED queue (this is what stops
+  # the timeout budget from being burned on queue-wait). Keep roughly aligned with each board's
+  # `rate_limits.concurrency` below — raise together to speed a board up (watch for 429/403).
+  company_concurrency:
+    greenhouse: 12
+    lever: 8
+    ashby: 4
+    bamboohr: 5
+    workday: 5
+
+  # Per-tenant detail-fetch fan-out (shared by the Workday + BambooHR list->detail boards):
+  # caps concurrent detail requests per tenant and jitters them to avoid tripping per-tenant throttles.
+  detail_concurrency: 4
+  detail_jitter_s: 0.3
+
+  # Per-board throttling. `concurrency` caps in-flight requests to that board; `min_interval_s`
+  # spaces successive requests (0 = no spacing). Ashby's 0.5s interval is the dominant run-time
+  # cost (it floors a full run at ~20 min) — lower it toward 0.1/0.0 to speed Ashby up.
+  # NOTE: this block replaces the code defaults wholesale (no merge), so all five boards must be
+  # listed; omitting one makes it fall back to the global `concurrency` above with no spacing.
+  # These are host-safe widths (Greenhouse is cached/unlimited; the others throttle per-tenant).
+  rate_limits:
+    greenhouse: { concurrency: 20, min_interval_s: 0.0 }
+    lever:      { concurrency: 8,  min_interval_s: 0.0 }
+    ashby:      { concurrency: 4,  min_interval_s: 0.5 }
+    bamboohr:   { concurrency: 6,  min_interval_s: 0.0 }
+    workday:    { concurrency: 8,  min_interval_s: 0.0 }

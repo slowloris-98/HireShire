@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -9,6 +10,9 @@ from typing import Optional
 from hireshire.models.job import Job
 
 logger = logging.getLogger(__name__)
+
+# Characters illegal in Windows filenames (Workday tokens contain '|').
+_UNSAFE_FILENAME_RE = re.compile(r'[|<>:"/\\?*]')
 
 
 class CompanyResult:
@@ -35,7 +39,7 @@ class RunStore:
         result.fetch_time_s = fetch_time_s
         self._results.append(result)
 
-        out_path = self.run_dir / f"{board_token}.json"
+        out_path = self.run_dir / f"{_UNSAFE_FILENAME_RE.sub('_', board_token)}.json"
         out_path.write_text(json.dumps(result.jobs, indent=2, default=str), encoding="utf-8")
         logger.info("Saved %d jobs for %s -> %s", len(jobs), board_token, out_path)
 

@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from hireshire.http_client import make_retry_decorator
 from hireshire.models.job import Department, Job, Location, Office
+from hireshire.rate_limit import RateLimiter
 from hireshire.scrapers.base import AbstractScraper
 from hireshire.scrapers.exceptions import SlugNotFoundError
 
@@ -70,12 +71,12 @@ class LeverScraper(AbstractScraper):
     def __init__(
         self,
         client: httpx.AsyncClient,
-        sem: asyncio.Semaphore,
+        limiter: RateLimiter,
         retry_attempts: int = 3,
         cutoff: Optional[datetime] = None,
     ):
         self._client = client
-        self._sem = sem
+        self._limiter = limiter
         self._retry = make_retry_decorator(retry_attempts)
         self._cutoff = cutoff
 
@@ -123,7 +124,7 @@ class LeverScraper(AbstractScraper):
     async def _get(self, url: str) -> httpx.Response:
         @self._retry
         async def _do_get():
-            async with self._sem:
+            async with self._limiter:
                 response = await self._client.get(url)
                 response.raise_for_status()
                 return response
