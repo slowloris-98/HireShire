@@ -227,6 +227,7 @@ async def main(
     in_queue: asyncio.Queue | None = None,
     out_queue: asyncio.Queue | None = None,
     quiet: bool = False,
+    on_tune=None,
 ) -> None:
     if not quiet:
         logging.basicConfig(
@@ -350,6 +351,8 @@ async def main(
                     quiet=quiet,
                 )
                 summary_rows.append((status, job.title, job.board_token))
+                if on_tune:
+                    on_tune(status, job.title, job.board_token)
                 if out_queue is not None:
                     pdf_path = store.run_dir / job.job_id / "Udayan_Atreya_Resume.pdf"
                     await out_queue.put({

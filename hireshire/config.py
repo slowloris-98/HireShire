@@ -75,6 +75,10 @@ class ScraperSettings(BaseModel):
     # Overridable via `settings.detail_concurrency` / `settings.detail_jitter_s` in scraper.yaml.
     detail_concurrency: int = 4
     detail_jitter_s: float = 0.3
+    # Greenhouse's list API already returns job content, so the per-job detail
+    # fetch only adds application `questions` (used by Phase 4). Off by default to
+    # skip one HTTP call per job; enable when the applier needs question metadata.
+    greenhouse_fetch_questions: bool = False
 
     @field_validator("request_timeout_s")
     @classmethod

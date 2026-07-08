@@ -26,6 +26,11 @@ settings:
   detail_concurrency: 4
   detail_jitter_s: 0.3
 
+  # Greenhouse's list API already includes job content, so its per-job detail
+  # fetch only adds application questions (used by Phase 4 applier). false skips
+  # that extra per-job call for a big scrape speedup; set true to keep questions.
+  greenhouse_fetch_questions: false
+
   # Per-board throttling. `concurrency` caps in-flight requests to that board; `min_interval_s`
   # spaces successive requests (0 = no spacing). Ashby's 0.5s interval is the dominant run-time
   # cost (it floors a full run at ~20 min) — lower it toward 0.1/0.0 to speed Ashby up.
@@ -34,7 +39,7 @@ settings:
   # These are host-safe widths (Greenhouse is cached/unlimited; the others throttle per-tenant).
   rate_limits:
     greenhouse: { concurrency: 20, min_interval_s: 0.0 }
-    lever:      { concurrency: 8,  min_interval_s: 0.0 }
-    ashby:      { concurrency: 4,  min_interval_s: 0.5 }
-    bamboohr:   { concurrency: 6,  min_interval_s: 0.0 }
-    workday:    { concurrency: 8,  min_interval_s: 0.0 }
+    lever:      { concurrency: 20,  min_interval_s: 0.0 }
+    ashby:      { concurrency: 20,  min_interval_s: 0.0 }
+    bamboohr:   { concurrency: 20,  min_interval_s: 0.0 }
+    workday:    { concurrency: 20,  min_interval_s: 0.0 }

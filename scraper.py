@@ -136,7 +136,7 @@ async def main(
     newly_bad: dict[str, list[str]] = {p: [] for p in _PLATFORMS}
 
     # Counters shared across tasks (mutated under lock)
-    counters = {"jobs": 0, "with_jobs": 0, "errors": 0, "not_found": 0, "blocked": 0}
+    counters = {"jobs": 0, "with_jobs": 0, "errors": 0, "not_found": 0, "blocked": 0, "done": 0}
     errors_detail: list[tuple[str, str]] = []  # (name, error message)
 
     try:
@@ -144,6 +144,7 @@ async def main(
             greenhouse_scraper = GreenhouseScraper(
                 client, settings.make_limiter("greenhouse"), settings.retry_attempts,
                 detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
+                fetch_questions=settings.greenhouse_fetch_questions,
             )
             lever_scraper = LeverScraper(client, settings.make_limiter("lever"), settings.retry_attempts, cutoff=cutoff)
             ashby_scraper = AshbyScraper(client, settings.make_limiter("ashby"), settings.retry_attempts)
@@ -244,7 +245,10 @@ async def main(
                     finally:
                         progress.advance(task)
                         if on_company_start:
-                            on_company_start(company.name)
+                            async with lock:
+                                counters["done"] += 1
+                                done = counters["done"]
+                            on_company_start(company.name, platform, done, total_companies)
 
                 async def run_board(companies, scraper_instance, token_attr, platform):
                     """Drain one board's companies through a fixed pool of workers.

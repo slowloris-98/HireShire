@@ -68,6 +68,7 @@ def _parse_job(
     list_entry: dict,
     detail: Optional[dict],
     scraped_at: datetime,
+    detail_required: bool = True,
 ) -> Optional[Job]:
     try:
         content_html = list_entry.get("content") or (detail.get("content") if detail else None)
@@ -88,7 +89,7 @@ def _parse_job(
             content_html=content_html,
             content_text=content_html,
             questions=questions,
-            detail_fetch_failed=(detail is None),
+            detail_fetch_failed=(detail is None and detail_required),
             scraped_at=scraped_at,
         )
     except (KeyError, ValidationError, AttributeError) as exc:
@@ -106,12 +107,14 @@ class GreenhouseScraper(AbstractScraper):
         retry_attempts: int = 3,
         detail_concurrency: int = 4,
         detail_jitter_s: float = 0.3,
+        fetch_questions: bool = True,
     ):
         self._client = client
         self._limiter = limiter
         self._retry = make_retry_decorator(retry_attempts)
         self._detail_concurrency = max(1, detail_concurrency)
         self._detail_jitter_s = max(0.0, detail_jitter_s)
+        self._fetch_questions = fetch_questions
 
     async def fetch_all(self, board_token: str) -> list[Job]:
         list_entries = await self._fetch_all_pages(board_token)
@@ -119,6 +122,17 @@ class GreenhouseScraper(AbstractScraper):
             return []
 
         scraped_at = datetime.now(timezone.utc)
+
+        # The list API (fetched with ?content=true) already includes job content, so
+        # the per-job detail fetch only adds application questions. Skip it entirely
+        # when questions aren't needed — one HTTP call per company instead of per job.
+        if not self._fetch_questions:
+            results = [
+                _parse_job(board_token, entry, None, scraped_at, detail_required=False)
+                for entry in list_entries
+            ]
+            return [j for j in results if j is not None]
+
         # Per-company cap so a big board can't fire hundreds of concurrent detail
         # fetches at once (matches the Workday/BambooHR fan-out throttle).
         detail_sem = asyncio.Semaphore(self._detail_concurrency)
