@@ -88,9 +88,9 @@ Update the paths in `config/tuner.yaml` if you store these elsewhere.
 
 ## Phase 1: Scraper
 
-Fetches open job listings from three job board APIs: **Greenhouse**, **Ashby**, and **Lever**. The scraper auto-detects which backend to use based on which JSON slug list a company came from.
+Fetches open job listings from five job board APIs: **Greenhouse**, **Ashby**, **Lever**, **Workday**, and **BambooHR**. The scraper auto-detects which backend to use based on which JSON slug list a company came from.
 
-### Company slug lists — `config/{ashby,greenhouse,lever}_companies.json`
+### Company slug lists — `config/{ashby,greenhouse,lever,workday,bamboohr}_companies.json`
 
 Company slugs are **not** stored in `scraper.yaml`. Each board has its own JSON file holding a flat array of board tokens (slugs), loaded by `hireshire/config.py`:
 
@@ -102,9 +102,179 @@ Company slugs are **not** stored in `scraper.yaml`. Each board has its own JSON 
 ```json
 // config/ashby_companies.json       →  jobs.ashbyhq.com/{slug}
 // config/lever_companies.json        →  jobs.lever.co/{slug}
+// config/bamboohr_companies.json     →  {slug}.bamboohr.com/careers
 ```
 
-The lists are large (currently ~8.3k Greenhouse, ~4.4k Lever, ~3.2k Ashby slugs). Add a company by appending its slug to the matching file.
+Workday slugs are **compound** — `company|wd#|site_id` — because the tenant host and career-site path can't be derived from a single token:
+
+```json
+// config/workday_companies.json      →  {company}.wd{#}.myworkdayjobs.com/{site_id}
+["23andme|wd5|23", "7eleven|wd3|7eleven", ...]
+```
+
+The lists are large (currently ~8.3k Greenhouse, ~4.4k Lever, ~3.2k Ashby slugs, plus Workday and BambooHR). Add a company by appending its slug to the matching file.
+
+### API response shapes
+
+Each board has a different JSON schema. The scraper maps the fields below into the shared `Job` model (`hireshire/models/job.py`); fields not listed are ignored. Only the keys actually consumed are shown.
+
+**Greenhouse** — `GET https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true` returns a `jobs` array (paginated via the RFC-5988 `Link` header). A second call per job, `.../jobs/{id}?questions=true`, fetches the application questions:
+
+```jsonc
+// list endpoint: /boards/{slug}/jobs?content=true
+{
+  "jobs": [
+    {
+      "id": 4012345,                                  // → job_id
+      "internal_job_id": 4008888,                      // → internal_job_id
+      "title": "Software Engineer, Backend",           // → title
+      "updated_at": "2026-05-28T14:03:11-04:00",       // → updated_at
+      "requisition_id": "ENG-1234",                    // → requisition_id
+      "location": { "name": "San Francisco, CA" },     // → location.name
+      "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/4012345",  // → absolute_url
+      "content": "<p>We are looking for…</p>",          // → content_html / content_text (HTML-stripped)
+      "departments": [
+        { "id": 101, "name": "Engineering", "parent_id": null }  // → departments[]
+      ],
+      "offices": [
+        { "id": 55, "name": "San Francisco", "location": "San Francisco, CA" }  // → offices[]
+      ]
+    }
+  ],
+  "meta": { "total": 1 }
+}
+```
+
+```jsonc
+// detail endpoint: /boards/{slug}/jobs/{id}?questions=true
+{
+  "id": 4012345,
+  "content": "<p>Full HTML description…</p>",           // preferred over list `content` when present
+  "questions": [
+    {
+      "label": "Are you legally authorized to work in the US?",  // → questions[].label
+      "required": true,                                  // → questions[].required
+      "type": "yes_no",                                  // → questions[].field_type
+      "values": [ { "label": "Yes" }, { "label": "No" } ]  // → questions[].values[]
+    }
+  ]
+}
+```
+
+**Ashby** — `GET https://api.ashbyhq.com/posting-api/job-board/{slug}` returns everything in one `jobs` array (no per-job detail call):
+
+```jsonc
+{
+  "jobs": [
+    {
+      "id": "d8f9c0a1-2b34-4c56-8d90-abcdef123456",     // → job_id
+      "title": "Full Stack Engineer",                    // → title
+      "location": "Remote, US",                          // → location.name
+      "secondaryLocations": [
+        { "location": "New York, NY" }                   // → offices[]
+      ],
+      "department": "Engineering",                       // → departments[]
+      "publishedAt": "2026-05-27T09:00:00.000Z",         // → updated_at
+      "jobUrl": "https://jobs.ashbyhq.com/acme/d8f9c0a1", // → absolute_url
+      "descriptionHtml": "<p>About the role…</p>",        // → content_html
+      "descriptionPlain": "About the role…"              // → content_text
+    }
+  ]
+}
+```
+
+**Lever** — `GET https://api.lever.co/v0/postings/{slug}?mode=json&limit=100&skip=0` returns a bare array (paginated by `skip`). An unknown company returns `{ "ok": false, "error": "…" }` instead:
+
+```jsonc
+[
+  {
+    "id": "a1b2c3d4-uuid",                              // → job_id
+    "text": "Senior Software Engineer",                 // → title
+    "hostedUrl": "https://jobs.lever.co/acme/a1b2c3d4", // → absolute_url
+    "createdAt": 1716825600000,                          // epoch ms → updated_at
+    "categories": {
+      "location": "Remote",                              // → location.name
+      "allLocations": ["Remote - US", "Remote - Canada"], // → offices[]
+      "team": "Engineering",                             // → departments[] (falls back to `department`)
+      "commitment": "Full-time"
+    },
+    "opening": "<div>…</div>",                            // ┐
+    "description": "<div>Role description…</div>",        // ├ concatenated → content_html / content_text
+    "additional": "<div>Benefits…</div>"                 // ┘
+  }
+]
+```
+
+**Workday** — the noisiest board. A `POST` to the tenant's CXS `jobs` endpoint (with a browser `User-Agent` and a JSON body) returns a paginated `jobPostings` list; a per-job `GET` on each `externalPath` returns the full `jobPostingInfo`. The compound slug `company|wd#|site_id` (e.g. `23andme|wd5|23`) encodes the tenant host and career-site path:
+
+```jsonc
+// POST /wday/cxs/{company}/{site}/jobs   body: {"appliedFacets":{},"limit":20,"offset":0,"searchText":""}
+{
+  "total": 137,
+  "jobPostings": [
+    {
+      "title": "Software Engineer II",                  // → title (fallback if detail missing)
+      "externalPath": "/job/San-Francisco/Software-Engineer-II_R-12345",  // → detail path & url fallback
+      "locationsText": "San Francisco, CA",             // → location.name (fallback)
+      "postedOn": "Posted 2 Days Ago",                  // → updated_at (relative, fallback)
+      "bulletFields": ["R-12345"]                       // → job_id / requisition_id (fallback)
+    }
+  ]
+}
+```
+
+```jsonc
+// GET /wday/cxs/{company}/{site}{externalPath}
+{
+  "jobPostingInfo": {
+    "jobReqId": "R-12345",                              // → job_id / requisition_id
+    "title": "Software Engineer II",                    // → title
+    "location": "San Francisco, CA",                    // → location.name
+    "startDate": "2026-05-28",                          // → updated_at (ISO, preferred over postedOn)
+    "jobDescription": "<p>…</p>",                        // → content_html / content_text
+    "externalUrl": "https://acme.wd1.myworkdayjobs.com/en-US/site/job/…"  // → absolute_url
+  }
+}
+```
+
+**BambooHR** — a `GET` on the public careers `list` feed returns `{ "result": [...] }`; a per-job `GET` on `.../careers/{id}/detail` returns `{ "result": { "jobOpening": {...}, "formFields": {...} } }`. A dead board 302-redirects to the marketing site (treated as slug-not-found):
+
+```jsonc
+// GET https://{slug}.bamboohr.com/careers/list
+{
+  "result": [
+    {
+      "id": 42,                                         // → job_id
+      "jobOpeningName": "Backend Engineer",             // → title
+      "departmentLabel": "Engineering",                 // → departments[] (fallback)
+      "location": { "city": "Austin", "state": "TX" }   // → location.name (fallback → "Austin, TX")
+    }
+  ]
+}
+```
+
+```jsonc
+// GET https://{slug}.bamboohr.com/careers/{id}/detail
+{
+  "result": {
+    "jobOpening": {
+      "jobOpeningName": "Backend Engineer",
+      "description": "<p>…</p>",                          // → content_html / content_text
+      "location": { "city": "Austin", "state": "TX" },   // → location.name
+      "departmentLabel": "Engineering",                  // → departments[]
+      "datePosted": "2026-05-28",                         // → updated_at
+      "jobOpeningShareUrl": "https://acme.bamboohr.com/careers/42"  // → absolute_url
+    },
+    "formFields": {
+      "resume": {                                         // key → questions[].field_type
+        "label": "Resume",                                // → questions[].label
+        "isRequired": true,                               // → questions[].required
+        "options": [ { "id": 1, "text": "Option A" } ]    // → questions[].values[]
+      }
+    }
+  }
+}
+```
 
 ### Bad-slug tracking — `config/bad_slugs.json`
 

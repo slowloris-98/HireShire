@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from bs4 import BeautifulSoup
@@ -58,3 +58,12 @@ class Job(BaseModel):
         if not v:
             return None
         return BeautifulSoup(v, "lxml").get_text(separator=" ", strip=True)
+
+    @field_validator("updated_at", "scraped_at", mode="after")
+    @classmethod
+    def ensure_utc(cls, v: datetime) -> datetime:
+        # Date-only sources (Workday startDate, BambooHR datePosted) parse as
+        # naive; assume UTC so they stay comparable to the tz-aware age cutoff.
+        if v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v

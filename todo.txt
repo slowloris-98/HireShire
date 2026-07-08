@@ -1,4 +1,8 @@
+- remove greenhouse second detail call
+
 - insert workday and other portals as well.
+- insert google, microsoft and stand alone big tech
+- how are the slugs being collected
 
 
 update the slugs from the repo

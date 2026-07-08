@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -10,6 +11,7 @@ from pydantic import ValidationError
 
 from hireshire.http_client import make_retry_decorator
 from hireshire.models.job import ApplicationQuestion, Department, Job, Location, Office
+from hireshire.rate_limit import RateLimiter
 from hireshire.scrapers.base import AbstractScraper
 from hireshire.scrapers.exceptions import SlugNotFoundError
 
@@ -66,6 +68,7 @@ def _parse_job(
     list_entry: dict,
     detail: Optional[dict],
     scraped_at: datetime,
+    detail_required: bool = True,
 ) -> Optional[Job]:
     try:
         content_html = list_entry.get("content") or (detail.get("content") if detail else None)
@@ -86,7 +89,7 @@ def _parse_job(
             content_html=content_html,
             content_text=content_html,
             questions=questions,
-            detail_fetch_failed=(detail is None),
+            detail_fetch_failed=(detail is None and detail_required),
             scraped_at=scraped_at,
         )
     except (KeyError, ValidationError, AttributeError) as exc:
@@ -97,10 +100,21 @@ def _parse_job(
 class GreenhouseScraper(AbstractScraper):
     source = "greenhouse"
 
-    def __init__(self, client: httpx.AsyncClient, sem: asyncio.Semaphore, retry_attempts: int = 3):
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        limiter: RateLimiter,
+        retry_attempts: int = 3,
+        detail_concurrency: int = 4,
+        detail_jitter_s: float = 0.3,
+        fetch_questions: bool = True,
+    ):
         self._client = client
-        self._sem = sem
+        self._limiter = limiter
         self._retry = make_retry_decorator(retry_attempts)
+        self._detail_concurrency = max(1, detail_concurrency)
+        self._detail_jitter_s = max(0.0, detail_jitter_s)
+        self._fetch_questions = fetch_questions
 
     async def fetch_all(self, board_token: str) -> list[Job]:
         list_entries = await self._fetch_all_pages(board_token)
@@ -108,7 +122,21 @@ class GreenhouseScraper(AbstractScraper):
             return []
 
         scraped_at = datetime.now(timezone.utc)
-        tasks = [self._fetch_detail_and_parse(board_token, entry, scraped_at) for entry in list_entries]
+
+        # The list API (fetched with ?content=true) already includes job content, so
+        # the per-job detail fetch only adds application questions. Skip it entirely
+        # when questions aren't needed — one HTTP call per company instead of per job.
+        if not self._fetch_questions:
+            results = [
+                _parse_job(board_token, entry, None, scraped_at, detail_required=False)
+                for entry in list_entries
+            ]
+            return [j for j in results if j is not None]
+
+        # Per-company cap so a big board can't fire hundreds of concurrent detail
+        # fetches at once (matches the Workday/BambooHR fan-out throttle).
+        detail_sem = asyncio.Semaphore(self._detail_concurrency)
+        tasks = [self._fetch_detail_and_parse(board_token, entry, scraped_at, detail_sem) for entry in list_entries]
         results = await asyncio.gather(*tasks)
         return [j for j in results if j is not None]
 
@@ -134,13 +162,16 @@ class GreenhouseScraper(AbstractScraper):
         return jobs
 
     async def _fetch_detail_and_parse(
-        self, board_token: str, list_entry: dict, scraped_at: datetime
+        self, board_token: str, list_entry: dict, scraped_at: datetime, detail_sem: asyncio.Semaphore
     ) -> Optional[Job]:
         job_id = list_entry["id"]
         detail = None
         try:
-            response = await self._get(f"{BASE_URL}/{board_token}/jobs/{job_id}?questions=true")
-            detail = response.json()
+            async with detail_sem:
+                if self._detail_jitter_s:
+                    await asyncio.sleep(random.uniform(0, self._detail_jitter_s))
+                response = await self._get(f"{BASE_URL}/{board_token}/jobs/{job_id}?questions=true")
+                detail = response.json()
         except Exception as exc:
             logger.warning("Detail fetch failed for job %s/%s: %s", board_token, job_id, exc)
 
@@ -149,7 +180,7 @@ class GreenhouseScraper(AbstractScraper):
     async def _get(self, url: str) -> httpx.Response:
         @self._retry
         async def _do_get():
-            async with self._sem:
+            async with self._limiter:
                 response = await self._client.get(url)
                 response.raise_for_status()
                 return response
