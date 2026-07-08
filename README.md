@@ -11,11 +11,11 @@ Each phase is fully independent — its own entrypoint, module, config, and outp
 | **Run** | `python scraper.py` | `python matcher.py` | `python tuner.py` | `/apply` (Claude skill) |
 | **Module** | `hireshire/scrapers/` | `hireshire/matcher/` | `hireshire/tuner/` | `hireshire/applier/` |
 | **Config** | `config/scraper.yaml` | `config/matcher.yaml` | `config/tuner.yaml` | `config/applier.yaml` |
-| **Output** | `data/scraped/<id>/` | `data/matches/<id>/` | `data/tuned/<id>/` | `data/applied/` |
+| **Output** | `jobs` / `run_companies` tables | `matches` table | `tuned_jobs` table + PDFs on disk | `applied` table |
 
-Orchestrator summary (all shortlisted jobs + tuning status) is written to `data/pipeline/<run_id>/` each run.
+All tabular data lives in one SQLite database, **`data/hireshire.db`** (WAL mode), keyed by a shared `run_id` — see [Storage](#storage). Only binary artifacts (tuned resume `.tex`/`.pdf`, applier screenshots) stay on disk. The orchestrator summary (all shortlisted jobs + tuning status) lands in the `pipeline_results` table plus a per-run CSV/JSON under `data/pipeline/<run_id>/`.
 
-Shared across all phases: `hireshire/models/`, `hireshire/storage/`.
+Shared across all phases: `hireshire/models/`, `hireshire/storage/` (the SQLite layer, `hireshire/storage/db.py`).
 
 ## Data Flow
 
@@ -23,25 +23,52 @@ Shared across all phases: `hireshire/models/`, `hireshire/storage/`.
 config/scraper.yaml  +  config/{greenhouse,ashby,lever}_companies.json  −  config/bad_slugs.json
         │
         ▼
-python scraper.py  →  data/scraped/<run_id>/{company}.json
+python scraper.py  →  jobs + run_companies tables            (data/hireshire.db, keyed by run_id)
                                 │
                                 ▼
         resume.pdf + config/matcher.yaml
                                 │
                                 ▼
-python matcher.py  →  data/matches/<run_id>/shortlisted.json
+python matcher.py  →  matches table (shortlisted flag per row)
                                 │
                                 ▼
                        config/tuner.yaml
                                 │
                                 ▼
-python tuner.py    →  data/tuned/<run_id>/<job_id>/
+python tuner.py    →  tuned_jobs table + data/tuned/<run_id>/<job_id>/{<Name>_Resume.tex,.pdf}
                                 │
                                 ▼
                       config/applier.yaml
                                 │
                                 ▼
-python applier.py  →  data/applied/applied.json
+python applier.py  →  applied table  (+ screenshots under data/applied/screenshots/)
+   or  /apply skill
+```
+
+Each phase reads the previous phase's output via `db.latest_run(<phase>)`. A **zero-job company writes only a `run_companies` metadata row — no `jobs` rows and no `[]` file.**
+
+---
+
+## Storage
+
+All tabular data lives in a single **SQLite** database, `data/hireshire.db` (WAL mode, stdlib — no server), managed by [`hireshire/storage/db.py`](hireshire/storage/db.py). One connection per DB path is shared process-wide and guarded by a lock; blocking writes are offloaded with `asyncio.to_thread`, and batched one transaction per company — so at 40k+ companies the scraper writes far faster than the old file-per-company layout while the pipeline stays responsive. The path is configurable per phase via the `db_path` config key (default `data/hireshire.db`).
+
+| Table | Written by | Holds |
+|---|---|---|
+| `runs` | every phase | one row per (run_id, phase) with summary stats |
+| `run_companies` | scraper | per-company status/job_count (incl. zero-job rows) |
+| `jobs` | scraper | scraped `Job` rows (raw JSON + indexed columns) |
+| `matches` | matcher | scored `MatchResult` rows with a `shortlisted` flag |
+| `seen_jobs` | matcher | cross-run set of already-scored job IDs |
+| `tuned_jobs` | tuner | per-job tune status + resume artifact paths |
+| `pipeline_results` | orchestrator | per-run summary of shortlisted jobs |
+| `applied` | applier / `/apply` | application records (dedup + audit) |
+
+Only binaries stay on disk: tuned resume `.tex`/`.pdf` under `data/tuned/<run_id>/<job_id>/` and screenshots under `data/applied/screenshots/`. Runs accumulate (no auto-prune); reclaim space manually:
+
+```bash
+python scripts/prune_runs.py --keep 10          # keep the 10 most-recent runs
+python scripts/prune_runs.py --before 2026-06-01 # drop runs older than a date
 ```
 
 ---
@@ -319,14 +346,9 @@ The `location_filter` does a substring match against each job's location fields 
 python scraper.py
 ```
 
-### Output — `data/scraped/<timestamp>/`
+### Output — `data/hireshire.db` (`jobs` + `run_companies` tables)
 
-```
-data/scraped/2026-05-29T23-24-43Z/
-├── manifest.json       # run summary: total jobs, per-company status, fetch times
-├── anthropic.json      # array of Job objects
-└── stripe.json
-```
+Each scraped `Job` is inserted into the `jobs` table (keyed by `run_id, job_id`); every company — including errored and **zero-job** ones — gets one row in `run_companies` (status, job_count, fetch time). A company that returned zero jobs therefore writes a single metadata row and **no `jobs` rows** (no more per-company `[]` files). The run summary lands in the `runs` table when the run finalises; `db.latest_run("scrape")` resolves the newest completed run.
 
 Newly discovered bad slugs are appended to `config/bad_slugs.json` at the end of the run.
 
@@ -364,8 +386,7 @@ settings:
   skip_llm: false            # true = skip scoring; all title-passing jobs are auto-shortlisted
   resume_path: data/resume_projects/Udayan_Resume.pdf
   projects_path: data/resume_projects/projects.md   # optional extra context appended to profile
-  runs_dir: data/scraped
-  matches_dir: data/matches
+  db_path: data/hireshire.db                         # shared SQLite datastore (all phases)
 
 title_filter:
   include_keywords:          # title must contain at least one (leave empty to skip)
@@ -384,22 +405,17 @@ title_filter:
 python matcher.py
 ```
 
-Reads automatically from the most recent scraper run in `data/scraped/`. The `title_filter` pre-filters jobs by title before sending to the LLM, saving API calls. Writes results incrementally to `progress.jsonl` so a mid-run crash can be resumed.
+Reads automatically from the most recent scraper run (`db.latest_run("scrape")`). The `title_filter` pre-filters jobs by title before sending to the LLM, saving API calls. Each scored result is committed to the `matches` table immediately, so a mid-run crash can be resumed (`MatchStore.load_progress` reads back rows for a run whose `runs` row isn't yet finalised).
 
 **Skip-LLM mode** — set `skip_llm: true` (or pass `--no-llm` to the orchestrator) to bypass scoring entirely: every job that passes the title filter is shortlisted with `relevance_score: 100` and `skip_reason: "llm_skipped"`. Useful for a zero-cost dry run of the full pipeline, or when the title filter alone is selective enough.
 
-**Cross-run dedup** — scored job IDs are persisted to `data/seen_jobs.json`. On later runs any job ID already in that set is skipped before the title filter or LLM, so recurring pipeline runs never re-score the same listing.
+**Cross-run dedup** — scored job IDs are persisted to the `seen_jobs` table. On later runs any job ID already in that set is skipped before the title filter or LLM, so recurring pipeline runs never re-score the same listing.
 
-### Output — `data/matches/<run_id>/`
+### Output — `data/hireshire.db` (`matches` table)
 
-```
-data/matches/2026-05-29T23-24-43Z/
-├── manifest.json       # scoring stats: threshold, model, counts
-├── shortlisted.json    # jobs above threshold with match_reasons + disqualifiers
-└── rejected.json       # jobs below threshold or skipped (no content)
-```
+Every scored job is written to the `matches` table with a `shortlisted` flag (`relevance_score >= threshold` and not skipped), the full `MatchResult` in `raw_json`, and the flat columns used for querying. Rejected/skipped jobs stay in the table (flag `0`) rather than a separate file. The tuner and applier read survivors via `db.load_shortlisted(run_id)`.
 
-Each entry in `shortlisted.json`:
+A shortlisted `MatchResult` (as stored in `raw_json`):
 
 ```json
 {
@@ -437,9 +453,8 @@ settings:
   resume_template_path: data/resume_projects/resume_template.tex  # template for assembler (Pass 2)
   projects_bullets_path: data/resume_projects/projects_bullets.yaml  # pre-authored LaTeX bullets
   projects_path: data/resume_projects/projects.md                 # legacy narrative (unused by optimizer)
-  matches_dir: data/matches
-  runs_dir: data/scraped
-  tuned_dir: data/tuned
+  tuned_dir: data/tuned          # on-disk home for the assembled .tex/.pdf (binaries)
+  db_path: data/hireshire.db     # shared SQLite datastore (all phases)
 
   model: gpt-4o-mini              # shared fallback when a per-pass override is unset
 
@@ -474,11 +489,12 @@ python tuner.py --jd-file path/to/job.txt --resume-tex path/to/resume.tex
 python tuner.py --jd-file path/to/job.txt --title "Senior Engineer" --company "Acme"
 ```
 
-### Output — `data/tuned/<run_id>/`
+### Output — `data/tuned/<run_id>/` (binaries) + `tuned_jobs` table
+
+The tuner reuses the orchestrator's `run_id`, so `data/tuned/<run_id>/` lines up with the scrape/matches/pipeline run. Per-job status, artifact paths, and the critique are recorded in the `tuned_jobs` table; the resume files themselves stay on disk (they're binaries the applier uploads):
 
 ```
 data/tuned/2026-05-29T23-24-43Z/
-├── manifest.json
 └── 5101378008/                        # one directory per job
     ├── job_description.txt
     ├── critique.json                  # structured critique from Pass 1
@@ -492,8 +508,10 @@ data/tuned/2026-05-29T23-24-43Z/
 
 Phase 4 has two interchangeable implementations that share `config/applier.yaml`:
 
-1. **`/apply` Claude Code skill** (recommended) — reads the latest pipeline results and fills + submits forms using Playwright MCP tools. Only processes jobs with `tuner_status == "tuned"` and a valid `resume_pdf`.
+1. **`/apply` Claude Code skill** (recommended) — reads the latest pipeline results (`data/pipeline/<latest>/pipeline_results.json`) and fills + submits forms using Playwright MCP tools. Only processes jobs with `tuner_status == "tuned"` and a valid `resume_pdf`. Reads/records applied state through `scripts/applied_cli.py` (the `applied` table).
 2. **`python applier.py`** — a standalone `browser-use` agent entrypoint that reads the latest **matches** run directly. Useful outside Claude Code.
+
+Both share the `applied` table, so a job applied via one is skipped by the other.
 
 Run either after the Tuner so the optimized resume PDFs are ready.
 
@@ -507,9 +525,8 @@ settings:
   headless: false            # show browser window while running
   inter_job_delay_s: 10      # seconds between applications
   max_steps: 40              # max browser-use agent steps per job (applier.py only)
-  matches_dir: data/matches
-  applied_dir: data/applied
-  runs_dir: data/scraped
+  applied_dir: data/applied  # on-disk home for screenshots/ (records go to the DB)
+  db_path: data/hireshire.db # shared SQLite datastore (all phases)
   resume_path: data/resume_projects/Udayan_Resume.pdf
   generate_cover_letter: true
   model: gpt-4o-mini         # LLM for answer generation / browser agent (applier.py only)
@@ -527,7 +544,7 @@ settings:
 /apply
 ```
 
-Invoke the skill in Claude Code. It reads the latest `data/pipeline/*/pipeline_results.json`, skips jobs that are already in `applied.json`, and processes the remaining tuned jobs sequentially.
+Invoke the skill in Claude Code. It reads the latest `data/pipeline/*/pipeline_results.json`, skips jobs already recorded in the `applied` table (via `python scripts/applied_cli.py list`), and processes the remaining tuned jobs sequentially.
 
 Or run the standalone `browser-use` entrypoint (reads the latest matches run instead of pipeline results):
 
@@ -543,15 +560,11 @@ The orchestrator can also trigger the `/apply` skill automatically after each pi
 python orchestrate.py --apply
 ```
 
-### Output — `data/applied/`
+### Output — `applied` table (+ `data/applied/screenshots/`)
 
-```
-data/applied/
-├── applied.json        # all application records (appended across runs)
-└── screenshots/        # browser screenshots per application
-```
+Application records go to the `applied` table (upserted by `job_id`); only the browser screenshots stay on disk under `data/applied/screenshots/`. Both `/apply` and `python applier.py` write here, so they share dedup state.
 
-Each entry in `applied.json`:
+A row in the `applied` table:
 
 ```json
 {
@@ -591,17 +604,17 @@ python orchestrate.py --apply      # invoke /apply skill after each run
 
 Logs are written to `logs/orchestrate.log` (rotates at 5 MB, keeps 5 files).
 
-### Output — `data/pipeline/<run_id>/`
+### Output — `pipeline_results` table (+ `data/pipeline/<run_id>/`)
 
-After each run, the orchestrator writes a summary of all shortlisted jobs to:
+Each result streams into the `pipeline_results` table (one `INSERT` per row) and is appended to a per-run CSV as it lands; at the end of the run the rows are exported once to JSON (read by the `/apply` skill):
 
 ```
 data/pipeline/2026-06-04T02-01-50Z/
-├── pipeline_results.json   # full records (array)
-└── pipeline_results.csv    # same data in CSV
+├── pipeline_results.json   # full records, exported once from the table at run end
+└── pipeline_results.csv    # same data, appended live during the run
 ```
 
-Every shortlisted job appears regardless of tuner outcome. The `tuner_status` field indicates what happened (`"tuned"` / `"skipped"` / `"error"`), and `resume_tex`/`resume_pdf` are `null` when tuning didn't complete. With `--no-matcher` the file is written but empty (`[]`).
+Every shortlisted job appears regardless of tuner outcome. The `tuner_status` field indicates what happened (`"tuned"` / `"skipped"` / `"error"`), and `resume_tex`/`resume_pdf` are `null` when tuning didn't complete. With `--no-matcher` the export is written but empty (`[]`).
 
 With `--apply`, the orchestrator invokes the `/apply` skill via `claude -p --permission-mode auto` after each run completes. The skill reads this file and applies only tuned jobs. This flag is ignored when `--no-tuner` or `--no-matcher` are set.
 
@@ -628,17 +641,19 @@ HireShire/
 │   ├── tuner.yaml                 # Phase 3 config
 │   └── applier.yaml               # Phase 4 config
 ├── scripts/
-│   └── verify_bad_slugs.py # re-validate config/bad_slugs.json (--prune / --platform)
+│   ├── verify_bad_slugs.py # re-validate config/bad_slugs.json (--prune / --platform)
+│   ├── prune_runs.py       # manual retention: drop old runs from the DB (--keep / --before)
+│   ├── applied_cli.py      # list/record applied jobs in the DB (used by the /apply skill)
+│   └── db_stats.py         # inspect the DB: tables + row counts + latest run per phase
 ├── tests/
-│   └── test_projects_bullets.py   # pytest wrapper around the tuner bullet lint
+│   ├── test_projects_bullets.py   # pytest wrapper around the tuner bullet lint
+│   └── test_db.py                 # SQLite storage layer unit tests
 ├── data/
-│   ├── scraped/            # Phase 1 output (gitignored)
-│   ├── matches/            # Phase 2 output (gitignored)
-│   ├── tuned/              # Phase 3 output (gitignored)
-│   ├── applied/            # Phase 4 output (gitignored)
-│   ├── pipeline/           # Orchestrator run summaries (gitignored)
-│   ├── resume_projects/    # Resume .tex / template / bullets (gitignored — personal)
-│   └── seen_jobs.json      # cross-run scored-job dedup set (gitignored)
+│   ├── hireshire.db        # SQLite datastore — ALL tabular data, all phases (gitignored)
+│   ├── tuned/              # Phase 3 binaries: assembled resume .tex/.pdf per job (gitignored)
+│   ├── applied/screenshots/ # Phase 4 browser screenshots (gitignored)
+│   ├── pipeline/           # per-run pipeline_results.{csv,json} export (gitignored)
+│   └── resume_projects/    # Resume .tex / template / bullets (gitignored — personal)
 ├── logs/                   # Orchestrator logs (gitignored)
 ├── .claude/
 │   ├── skills/apply.md     # Phase 4 as a Claude Code skill (/apply)
@@ -647,7 +662,9 @@ HireShire/
     ├── config.py            # Scraper config loader (settings + slug JSON files → AppConfig)
     ├── http_client.py       # Shared HTTP client with retry/backoff
     ├── models/job.py        # Shared Job data model
-    ├── storage/json_store.py
+    ├── storage/
+    │   ├── db.py            # SQLite datastore: schema, connection, all read/write helpers
+    │   └── json_store.py    # scraper's RunStore facade over db.py
     ├── scrapers/
     │   ├── base.py
     │   ├── exceptions.py    # SlugNotFoundError (drives bad-slug tracking)
@@ -660,9 +677,9 @@ HireShire/
     │   ├── loader.py
     │   ├── prompts.py       # scorer system prompt (rubric)
     │   ├── scorer.py        # Gemini/OpenAI/Anthropic backends + MatchResult model
-    │   ├── seen.py          # cross-run job-ID dedup (data/seen_jobs.json)
+    │   ├── seen.py          # cross-run job-ID dedup (seen_jobs table)
     │   ├── title_filter.py  # keyword pre-filter before LLM scoring
-    │   └── store.py
+    │   └── store.py         # MatchStore: writes the matches table
     ├── tuner/
     │   ├── config.py
     │   ├── evaluator.py     # Pass 1: recruiter critique → EvaluatorResult
@@ -671,11 +688,11 @@ HireShire/
     │   ├── lint.py          # validates projects_bullets.yaml corpus
     │   ├── prompts.py       # system prompts for evaluator and selector
     │   ├── loader.py
-    │   └── store.py         # PDF compilation with pdflatex
+    │   └── store.py         # PDF compilation + tuned_jobs table rows
     └── applier/
         ├── config.py
         ├── answerer.py      # LLM-based question answering
         ├── filler.py        # browser-use form filling
         ├── loader.py
-        └── store.py
+        └── store.py         # AppliedStore: writes the applied table
 ```

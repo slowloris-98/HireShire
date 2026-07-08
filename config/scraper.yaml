@@ -9,6 +9,7 @@ settings:
     - "united states"
     - "remote"
     - "india"
+  db_path: data/hireshire.db  # shared SQLite datastore — scraper writes the jobs + run_companies tables
 
   # Per-board count of in-flight company workers. Each board's queue is drained by this many
   # long-lived workers; a company waiting its turn sits in an UNTIMED queue (this is what stops

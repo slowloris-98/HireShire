@@ -91,7 +91,6 @@ def _parse_job(
             departments=departments,
             absolute_url=absolute_url,
             updated_at=updated_at,
-            content_html=content_html,
             content_text=content_html,
             questions=questions,
             detail_fetch_failed=(detail is None),

@@ -33,6 +33,7 @@ from hireshire.tuner.evaluator import ResumeEvaluator, make_evaluator_backend
 from hireshire.tuner.loader import load_shortlisted
 from hireshire.tuner.optimizer import ResumeOptimizer, make_optimizer_backend
 from hireshire.tuner.store import TuneStore
+from hireshire.storage.db import get_db
 
 load_dotenv()
 
@@ -227,6 +228,7 @@ async def main(
     in_queue: asyncio.Queue | None = None,
     out_queue: asyncio.Queue | None = None,
     quiet: bool = False,
+    run_id: str | None = None,
     on_tune=None,
 ) -> None:
     if not quiet:
@@ -304,8 +306,12 @@ async def main(
             )
 
     # --- Set up store and LLM backends ---
-    run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
-    store = TuneStore(base_dir=Path(settings.tuned_dir), run_id=run_id)
+    # In pipeline mode the orchestrator passes its shared run_id so data/tuned/
+    # aligns with the scrape/matches/pipeline runs; otherwise mint a fresh one.
+    if run_id is None:
+        run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    db = get_db(settings.db_path)
+    store = TuneStore(base_dir=Path(settings.tuned_dir), run_id=run_id, db=db)
     started_at = datetime.now(timezone.utc)
 
     sem = asyncio.Semaphore(1)
@@ -374,7 +380,7 @@ async def main(
         finally:
             if out_queue is not None:
                 await out_queue.put(None)
-            store.save_manifest(
+            store.finalise_run(
                 started_at=started_at,
                 source_run_id=source_run_id,
                 model=f"{eval_provider}/{eval_model} + {opt_provider}/{opt_model}",
@@ -411,11 +417,7 @@ async def main(
                 f"({len(job.content_text or '')} chars)\n"
             )
     else:
-        raw_jobs = load_shortlisted(
-            matches_dir=Path(settings.matches_dir),
-            runs_dir=Path(settings.runs_dir),
-            run_id=args.run_id,
-        )
+        raw_jobs = load_shortlisted(run_id=args.run_id, db=db)
         if not raw_jobs:
             if not quiet:
                 console.print(
@@ -474,7 +476,7 @@ async def main(
             if settings.request_interval_s > 0 and (match_result, job) != jobs[-1]:
                 await asyncio.sleep(settings.request_interval_s)
 
-    store.save_manifest(
+    store.finalise_run(
         started_at=started_at,
         source_run_id=source_run_id,
         model=f"{eval_provider}/{eval_model} + {opt_provider}/{opt_model}",

@@ -3,9 +3,8 @@ settings:
   resume_template_path: data/resume_projects/resume_template.tex  # used by assembler (Pass 2)
   projects_bullets_path: data/resume_projects/projects_bullets.yaml  # pre-authored LaTeX bullets
   projects_path: data/resume_projects/projects.md                 # legacy narrative (no longer used by optimizer)
-  matches_dir: data/matches
-  runs_dir: data/scraped
-  tuned_dir: data/tuned
+  tuned_dir: data/tuned          # on-disk home for the assembled resume .tex/.pdf (binaries)
+  db_path: data/hireshire.db     # shared SQLite datastore — reads matches, writes the tuned_jobs table
 
   # Shared fallback model (used when per-pass overrides below are not set)
   model: gpt-4o-mini

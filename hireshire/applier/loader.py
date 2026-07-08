@@ -1,84 +1,61 @@
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
+from collections import defaultdict
+from typing import Optional
 
 from hireshire.applier.store import AppliedStore
 from hireshire.matcher.scorer import MatchResult
 from hireshire.models.job import Job
+from hireshire.storage.db import PHASE_MATCH, Database, get_db
 
 logger = logging.getLogger(__name__)
 
 
-def latest_matches_run(matches_dir: Path) -> Path | None:
-    runs = sorted([p for p in matches_dir.iterdir() if p.is_dir() and p.name[:4].isdigit()], reverse=True) if matches_dir.exists() else []
-    return runs[0] if runs else None
-
-
 def load_shortlisted(
-    matches_dir: Path,
-    runs_dir: Path,
     store: AppliedStore,
     run_id: str | None = None,
+    db: Optional[Database] = None,
 ) -> list[tuple[MatchResult, Job]]:
-    match_dir = (matches_dir / run_id) if run_id else latest_matches_run(matches_dir)
-    if not match_dir or not match_dir.exists():
-        logger.error("No matches run found in %s", matches_dir)
+    """Load shortlisted (MatchResult, Job) pairs to apply to, skipping jobs that
+    were already applied. Reads from the shared database."""
+    db = db or get_db()
+    if run_id is None:
+        run_id = db.latest_run(PHASE_MATCH)
+    if not run_id:
+        logger.error("No matches run found in the database")
         return []
 
-    shortlisted_path = match_dir / "shortlisted.json"
-    if not shortlisted_path.exists():
-        logger.warning("shortlisted.json not found in %s", match_dir)
+    raw = db.load_shortlisted(run_id)
+    if not raw:
+        logger.warning("No shortlisted matches for run %s", run_id)
         return []
 
-    try:
-        raw = json.loads(shortlisted_path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        logger.error("Could not read %s: %s", shortlisted_path, exc)
-        return []
-
-    # Cache original job files to avoid re-reading the same file per job
-    job_cache: dict[str, dict[str, dict[str, Job]]] = {}
-    results: list[tuple[MatchResult, Job]] = []
-
+    matches: list[MatchResult] = []
+    ids_by_run: dict[str, list[str]] = defaultdict(list)
     for record in raw:
         try:
-            match_result = MatchResult(**record)
-        except Exception as exc:
+            mr = MatchResult(**record)
+        except Exception as exc:  # noqa: BLE001
             logger.warning("Skipping malformed match result: %s", exc)
             continue
-
-        if store.is_applied(match_result.job_id):
-            logger.info("Skipping already-applied job %s (%s)", match_result.job_id, match_result.title)
+        if store.is_applied(mr.job_id):
+            logger.info("Skipping already-applied job %s (%s)", mr.job_id, mr.title)
             continue
+        matches.append(mr)
+        ids_by_run[mr.source_run_id].append(mr.job_id)
 
-        source_run_id = match_result.source_run_id
-        board_token = match_result.board_token
-        job_id = match_result.job_id
+    job_cache: dict[str, dict[str, Job]] = {
+        src: db.get_jobs(src, ids) for src, ids in ids_by_run.items()
+    }
 
-        if source_run_id not in job_cache:
-            job_cache[source_run_id] = {}
-
-        if board_token not in job_cache[source_run_id]:
-            job_file = runs_dir / source_run_id / f"{board_token}.json"
-            if job_file.exists():
-                try:
-                    raw_jobs = json.loads(job_file.read_text(encoding="utf-8"))
-                    job_cache[source_run_id][board_token] = {j["job_id"]: Job(**j) for j in raw_jobs}
-                except Exception as exc:
-                    logger.warning("Could not load %s: %s", job_file, exc)
-                    job_cache[source_run_id][board_token] = {}
-            else:
-                logger.warning("Original job file not found: %s — re-run the scraper to restore it", job_file)
-                job_cache[source_run_id][board_token] = {}
-
-        job = job_cache.get(source_run_id, {}).get(board_token, {}).get(job_id)
+    results: list[tuple[MatchResult, Job]] = []
+    for mr in matches:
+        job = job_cache.get(mr.source_run_id, {}).get(mr.job_id)
         if not job:
-            logger.warning("Skipping %s/%s: original job data not found", board_token, job_id)
+            logger.warning("Skipping %s/%s: original job data not found", mr.board_token, mr.job_id)
             continue
-
-        results.append((match_result, job))
+        results.append((mr, job))
 
     logger.info("Loaded %d shortlisted jobs to apply (skipped already-applied)", len(results))
     return results

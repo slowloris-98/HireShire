@@ -86,7 +86,6 @@ def _parse_job(token: str, urls: _WorkdayUrls, list_entry: dict, detail: Optiona
             absolute_url=absolute_url,
             updated_at=updated_at,
             requisition_id=str(req_id) if req_id else None,
-            content_html=content_html,
             content_text=content_html,
             questions=[],
             detail_fetch_failed=(detail is None),

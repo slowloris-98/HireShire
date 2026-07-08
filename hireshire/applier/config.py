@@ -11,6 +11,7 @@ class ApplierSettings(BaseModel):
     matches_dir: str = "data/matches"
     applied_dir: str = "data/applied"
     runs_dir: str = "data/scraped"
+    db_path: str = "data/hireshire.db"
     resume_path: str = "data/resume_projects/Udayan_Resume.pdf"
     headless: bool = True
     inter_job_delay_s: float = 10.0

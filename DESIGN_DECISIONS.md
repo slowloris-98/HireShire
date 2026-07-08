@@ -15,8 +15,8 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 | 3 | Protocol-based LLM backends | `hireshire/matcher/scorer.py`, `hireshire/tuner/optimizer.py` |
 | 4 | Provider-specific retry with dynamic delay | `hireshire/matcher/scorer.py`, `hireshire/tuner/optimizer.py` |
 | 5 | Title filter before LLM scoring | `hireshire/matcher/title_filter.py`, `config/matcher.yaml` |
-| 6 | Streaming storage via `progress.jsonl` | `hireshire/matcher/` |
-| 7 | Seen jobs deduplication across runs | `hireshire/matcher/seen.py` |
+| 6 | Crash-survivable matcher writes via the `matches` table | `hireshire/matcher/store.py` |
+| 7 | Seen jobs deduplication across runs (`seen_jobs` table) | `hireshire/matcher/seen.py` |
 | 8 | Two-pass tuner (Evaluator → Optimizer) | `hireshire/tuner/evaluator.py`, `hireshire/tuner/optimizer.py` |
 | 9 | LaTeX resume with template substitution | `hireshire/tuner/assembler.py`, `data/resume_projects/` |
 | 10 | Two-directional code-only page fit (trim + fill) | `tuner.py` |
@@ -28,6 +28,7 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 | 16 | Company slugs as bulk JSON lists (not inline YAML) | `hireshire/config.py`, `config/*_companies.json` |
 | 17 | Self-healing bad-slug tracking | `config/bad_slugs.json`, `hireshire/scrapers/exceptions.py`, `scripts/verify_bad_slugs.py` |
 | 18 | Skip-LLM matcher mode | `matcher.py`, `config/matcher.yaml` |
+| 19 | Single SQLite datastore for all phases | `hireshire/storage/db.py`, `scripts/prune_runs.py` |
 
 ---
 
@@ -39,7 +40,7 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 
 **Rationale:** Independence means a bad LLM scoring run doesn't force a re-scrape. A scraper update doesn't break the matcher interface. Each phase can be iterated on, tested, or replaced without touching the others. Data directories act as version-controlled checkpoints — you can re-run the tuner against a previous matcher run with `--run-id`.
 
-**Tradeoffs:** Four entrypoints and four config files to keep in sync. The data-directory handoff convention (`always pick the latest timestamped run`) is implicit — a future schema change in one phase could silently break downstream phases that don't validate input.
+**Tradeoffs:** Four entrypoints and four config files to keep in sync. The phase handoff convention (`db.latest_run(<phase>)` — the newest completed run for a phase) is implicit — a future schema change in one phase could silently break downstream phases that don't validate input. (See Decision #19 for the shared datastore that backs this handoff.)
 
 ---
 
@@ -91,15 +92,15 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 
 ---
 
-## 6. Streaming Storage via `progress.jsonl`
+## 6. Crash-Survivable Matcher Writes via the `matches` Table
 
-**Context:** On free-tier Gemini with a 13-second inter-request interval, scoring 200 jobs takes roughly 45 minutes. A crash, keyboard interrupt, or API outage mid-run discards all work completed so far.
+**Context:** On free-tier Gemini with a 13-second inter-request interval, scoring 200 jobs takes roughly 45 minutes. A crash, keyboard interrupt, or API outage mid-run must not discard all work completed so far.
 
-**Decision:** The matcher appends each `MatchResult` as a single JSON line to `data/matches/<run_id>/progress.jsonl` immediately after scoring. On startup for the same `run_id`, it loads the progress file and skips any job IDs already present.
+**Decision:** The matcher commits each `MatchResult` to the `matches` table (`INSERT OR REPLACE`, one row) immediately after scoring, tagged with a `shortlisted` flag. On startup for the same `run_id`, `MatchStore.load_progress` reads back the already-committed rows — but only while the run's `runs` row hasn't been finalised (an unfinished run) — and skips those job IDs. When the run completes, the `runs` row is written and the same rows simply become the final result set (no separate `shortlisted.json`/`rejected.json` files to reconcile). This replaced the earlier `progress.jsonl` streaming file.
 
-**Rationale:** Crash-safe incremental writes. A resume is trivial — re-run the matcher with the same `run_id` and it picks up where it left off. No re-scoring already-processed jobs.
+**Rationale:** Crash-safe incremental writes with no cleanup step. Because the committed rows *are* the final output (queried by `shortlisted` flag), there is no "promote progress → final" move that could be interrupted. A resume is trivial — re-run with the same `run_id`.
 
-**Tradeoffs:** `progress.jsonl` must be cleaned up at the end of a successful run (it is — replaced by `shortlisted.json` + `rejected.json`). If the cleanup step is interrupted, a stale progress file could interfere with a fresh run using a recycled `run_id`. The current implementation generates unique timestamped run IDs so this is unlikely in practice.
+**Tradeoffs:** Resume correctness now hinges on the `runs`-row-as-completion-marker convention rather than the presence/absence of a temp file. Unique timestamped run IDs make a recycled-ID collision unlikely in practice.
 
 ---
 
@@ -107,11 +108,11 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 
 **Context:** The orchestrator runs on a recurring schedule (default: every 4 hours). Job boards keep listings live for weeks. Without deduplication, every pipeline run would re-score and potentially re-apply to the same jobs.
 
-**Decision:** `hireshire/matcher/seen.py` maintains a persistent JSON set at `data/seen_jobs.json` (the `SeenStore` path is derived as `matches_dir.parent / "seen_jobs.json"`, so it sits alongside the per-run `data/matches/` directories rather than inside any one of them). The matcher adds each scored job's ID to this set. On subsequent runs, any job ID already in the set is skipped before reaching the title filter or LLM.
+**Decision:** `hireshire/matcher/seen.py` maintains the persistent set in the `seen_jobs` table (`job_id` primary key, `INSERT OR IGNORE` on flush). `SeenStore` loads the set once, buffers newly-seen IDs in memory, and flushes them on `save()`. The matcher adds each scored job's ID; on subsequent runs, any job ID already in the set is skipped before reaching the title filter or LLM.
 
-**Rationale:** Once a job has been scored and acted on (tuned + applied), there is no value in re-processing it. The seen set makes the matcher idempotent across runs.
+**Rationale:** Once a job has been scored and acted on (tuned + applied), there is no value in re-processing it. The seen set makes the matcher idempotent across runs. A single indexed table replaces the old growing `seen_jobs.json` and gives atomic, deduplicated inserts for free.
 
-**Tradeoffs:** The seen set grows unboundedly — there is no TTL or expiry. A job that is taken down and reposted with a new ID will be re-processed (correct behavior), but a job reposted with the same ID will be silently skipped. There is also no mechanism to force re-evaluation of a specific job without manually editing `seen_jobs.json`.
+**Tradeoffs:** The seen set grows over time (it is deliberately cross-run and unbounded), though as one indexed table it scales far better than the former JSON file. A job reposted with a new ID is re-processed (correct); one reposted with the same ID is silently skipped. To force re-evaluation, delete the row (or prune the run via `scripts/prune_runs.py` — note that prunes run rows, not `seen_jobs`, which is intentionally cross-run).
 
 ---
 
@@ -184,13 +185,13 @@ Each entry follows a lightweight ADR structure: **Context → Decision → Ratio
 
 **Context:** Filling out job application forms requires browser automation. Application forms on Greenhouse, Lever, and Ashby all have different field layouts, custom questions, and multi-step flows. A purely programmatic approach would need per-platform selectors, custom question logic, and cover letter generation — all of which are fragile and labor-intensive.
 
-**Decision:** The applier is implemented as `.claude/skills/apply.md` — a markdown skill file that instructs a Claude agent to use Playwright MCP tools to navigate, fill, and submit forms. It reads `config/applier.yaml` for identity fields, loads the job-specific `resume_pdf` from the pipeline results, and reasons over open-ended form fields using the resume and job description as context.
+**Decision:** The applier is implemented as `.claude/skills/apply.md` — a markdown skill file that instructs a Claude agent to use Playwright MCP tools to navigate, fill, and submit forms. It reads `config/applier.yaml` for identity fields, loads the job-specific `resume_pdf` from the exported pipeline results (`data/pipeline/<latest>/pipeline_results.json`), and reasons over open-ended form fields using the resume and job description as context. Applied-state (dedup + records) goes through `scripts/applied_cli.py` (`list` / `record`) so the skill shares the `applied` table with `python applier.py` rather than keeping its own file.
 
 **Rationale:** Playwright MCP tools are available inside Claude Code but not as a standalone Python library dependency. Delegating form reasoning to Claude handles label-based field detection, generates cover letters, answers open-ended questions conservatively ("Prefer not to answer" for demographics, no fabrication), and adapts to form variants without hardcoded selectors.
 
 **Tradeoffs:** Non-deterministic behavior — different runs may navigate the same form slightly differently. Harder to unit-test than a Python Playwright script. Requires running inside Claude Code (cannot be invoked from a plain Python subprocess without wrapping it in a `claude -p` call, which is what the orchestrator's `--apply` flag does). Introduced in commit `b4afe87`.
 
-A parallel standalone entrypoint, `applier.py`, drives the same forms with a `browser-use` agent (`hireshire/applier/filler.py`) and reads the latest **matches** run instead of pipeline results. It exists for running Phase 4 outside Claude Code and shares `config/applier.yaml` with the skill, but is a separate implementation — the skill remains the primary path.
+A parallel standalone entrypoint, `applier.py`, drives the same forms with a `browser-use` agent (`hireshire/applier/filler.py`) and reads the latest **matches** run instead of pipeline results. It exists for running Phase 4 outside Claude Code and shares `config/applier.yaml` **and the `applied` table** with the skill, but is a separate implementation — the skill remains the primary path.
 
 ---
 
@@ -251,3 +252,17 @@ A parallel standalone entrypoint, `applier.py`, drives the same forms with a `br
 **Rationale:** Reuses the entire existing pipeline (title filter, seen-dedup, incremental storage, queue forwarding) with the scoring step swapped for a constant. The title filter becomes the sole selectivity mechanism, which is deterministic and free. The distinct `skip_reason` keeps skip-LLM shortlists auditable and separable from genuinely-scored ones in reporting.
 
 **Tradeoffs:** With scoring disabled, the `threshold` setting is meaningless and *everything* title-passing flows to the tuner — potentially a large batch of low-relevance jobs consuming tuner LLM calls. It is a blunt instrument: there is no middle ground between full LLM scoring and none. Auto-assigning `relevance_score: 100` means downstream consumers that sort or gate on score treat these as top matches, which is correct only if the operator understands the mode is active.
+
+---
+
+## 19. Single SQLite Datastore for All Phases
+
+**Context:** The original design gave each phase its own timestamped output directory of JSON/JSONL files: one file *per company* under `data/scraped/<run>/`, plus `manifest.json`, `progress.jsonl`, `shortlisted.json`/`rejected.json`, `seen_jobs.json`, per-job tuned dirs, `applied.json`, and incrementally-rewritten `pipeline_results.json`. Once the company list scaled past ~40k, a single scrape run created up to ~40k tiny files — most of them `[]` for companies with no matching jobs — plus a manifest re-embedding every job. Nothing pruned old runs, the "latest run" logic was duplicated in four places, and the orchestrator rewrote the whole pipeline JSON on every record (O(n²)).
+
+**Decision:** Replace the file-per-run model with one **SQLite** database, `data/hireshire.db` (stdlib, WAL mode), managed by `hireshire/storage/db.py`. Tables: `runs`, `run_companies`, `jobs`, `matches`, `seen_jobs`, `pipeline_results`, `tuned_jobs`, `applied` — all keyed by a shared `run_id`, with a single `db.latest_run(<phase>)` replacing the four duplicated "latest timestamped dir" helpers. Only genuine binaries stay on disk: tuned resume `.tex`/`.pdf` under `data/tuned/<run>/<job_id>/` and applier screenshots. A **zero-job company writes one `run_companies` metadata row and no `jobs` rows** — the `[]`-file explosion is gone. The path is configurable per phase via a `db_path` key.
+
+**Concurrency:** one connection per DB path, shared process-wide and guarded by a `threading.Lock` (created with `check_same_thread=False`); the async phases offload blocking writes with `asyncio.to_thread`, batching one transaction per company (`executemany`). PRAGMAs `journal_mode=WAL`, `synchronous=NORMAL`, and `busy_timeout=5000` mean readers never block the single writer and the rare cross-process writer waits rather than erroring. Because the pipeline is write-mostly (data flows phase→phase through in-memory queues; DB reads happen only in standalone/`--run-id` runs), lock contention is negligible — and batched inserts into one file are *faster* than the tens of thousands of tiny file writes the old layout required.
+
+**Rationale:** At 40k+ companies the filesystem metadata cost (an `open/write/close` per company) dominated; collapsing to one indexed file removes it, bounds the inode count to O(1) per run, kills the duplicated seen/applied JSON growth, and makes cross-run queries trivial. Crash-resume, dedup, and applied-tracking all become plain table reads. The O(n²) pipeline rewrite becomes one `INSERT` per row (CSV still streamed live; JSON exported once at run end for the `/apply` skill).
+
+**Tradeoffs:** A single DB file is a single point of contention and corruption risk (mitigated by WAL + one-writer serialization); heavy *concurrent* cross-process writers would need the fallback of per-phase DB files, which we chose not to build up front (it loses single-file simplicity and cross-run queries for no measured benefit). Retention is **manual and opt-in** — runs accumulate until `scripts/prune_runs.py --keep N` / `--before DATE` is run; `seen_jobs`/`applied` are deliberately cross-run and never pruned. WAL adds `-wal`/`-shm` sidecar files (gitignored).

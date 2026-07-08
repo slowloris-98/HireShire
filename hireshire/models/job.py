@@ -44,7 +44,6 @@ class Job(BaseModel):
     updated_at: datetime
     requisition_id: Optional[str] = None
 
-    content_html: Optional[str] = None
     content_text: Optional[str] = None
 
     questions: list[ApplicationQuestion] = []

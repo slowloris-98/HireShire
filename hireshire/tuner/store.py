@@ -6,9 +6,11 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
+from hireshire.storage.db import PHASE_TUNE, Database, get_db
 from hireshire.tuner.evaluator import EvaluatorResult
 
 logger = logging.getLogger(__name__)
@@ -51,10 +53,16 @@ def _measure_pdf(pdf_path: Path) -> tuple[int | None, float | None]:
 
 
 class TuneStore:
-    def __init__(self, base_dir: Path, run_id: str) -> None:
+    """Tuner persistence: resume tex/PDF stay on disk under
+    ``data/tuned/<run_id>/<job_id>/`` (genuine binary artifacts); per-job status,
+    paths, and the critique are mirrored into the ``tuned_jobs`` DB table and the
+    run summary into the ``runs`` table."""
+
+    def __init__(self, base_dir: Path, run_id: str, db: Optional[Database] = None) -> None:
         self.run_dir = base_dir / run_id
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.run_id = run_id
+        self._db = db or get_db()
         self._tuned_count = 0
         self._skipped_count = 0
         self._error_count = 0
@@ -87,6 +95,11 @@ class TuneStore:
         tex_path = job_dir / f"{_TEX_NAME}.tex"
         tex_path.write_text(optimized_tex, encoding="utf-8")
 
+        self._db.record_tuned(
+            self.run_id, job_id, "tuned",
+            str(tex_path), str(job_dir / f"{_TEX_NAME}.pdf"),
+            json.dumps(critique.model_dump(mode="json"), default=str),
+        )
         self._tuned_count += 1
         logger.info("Saved tuned resume for job %s → %s", job_id, job_dir)
         return job_dir
@@ -108,6 +121,10 @@ class TuneStore:
         (job_dir / "critique.json").write_text(
             json.dumps(critique.model_dump(mode="json"), indent=2),
             encoding="utf-8",
+        )
+        self._db.record_tuned(
+            self.run_id, job_id, "rejected", None, None,
+            json.dumps(critique.model_dump(mode="json"), default=str),
         )
         logger.info("Saved rejection critique for job %s → %s", job_id, job_dir)
         return job_dir
@@ -169,7 +186,7 @@ class TuneStore:
     def record_error(self) -> None:
         self._error_count += 1
 
-    def save_manifest(
+    def finalise_run(
         self,
         started_at: datetime,
         source_run_id: str,
@@ -177,11 +194,8 @@ class TuneStore:
         provider: str,
         total_loaded: int,
     ) -> None:
-        manifest = {
-            "run_id": self.run_id,
+        stats = {
             "source_matches_run_id": source_run_id,
-            "started_at": started_at.isoformat(),
-            "finished_at": datetime.now(timezone.utc).isoformat(),
             "provider": provider,
             "model": model,
             "total_jobs_loaded": total_loaded,
@@ -189,9 +203,8 @@ class TuneStore:
             "skipped_count": self._skipped_count,
             "error_count": self._error_count,
         }
-        path = self.run_dir / "manifest.json"
-        path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        self._db.finalise_run(self.run_id, PHASE_TUNE, started_at.isoformat(), None, stats)
         logger.info(
-            "Manifest saved: %d tuned, %d skipped, %d errors → %s",
-            self._tuned_count, self._skipped_count, self._error_count, self.run_dir,
+            "Tune run finalised: %d tuned, %d skipped, %d errors (run %s)",
+            self._tuned_count, self._skipped_count, self._error_count, self.run_id,
         )

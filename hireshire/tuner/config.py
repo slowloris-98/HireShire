@@ -14,6 +14,7 @@ class TunerSettings(BaseModel):
     matches_dir: str = "data/matches"
     runs_dir: str = "data/scraped"
     tuned_dir: str = "data/tuned"
+    db_path: str = "data/hireshire.db"
     # Shared defaults — used when per-pass overrides are not set
     model: str = "claude-sonnet-4-6"
     # Per-pass overrides (None = fall back to LLM_PROVIDER env var + model above)

@@ -26,6 +26,7 @@ from hireshire.scrapers.exceptions import BoardBlockedError, SlugNotFoundError
 from hireshire.scrapers.greenhouse import GreenhouseScraper
 from hireshire.scrapers.lever import LeverScraper
 from hireshire.scrapers.workday import WorkdayScraper
+from hireshire.storage.db import get_db
 from hireshire.storage.json_store import RunStore
 
 logger = logging.getLogger(__name__)
@@ -95,7 +96,7 @@ async def main(
     if run_id is None:
         run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 
-    store = RunStore(base_dir=Path("data/scraped"), run_id=run_id)
+    store = RunStore(run_id=run_id, db=get_db(settings.db_path))
     started_at = datetime.now(timezone.utc)
 
     cutoff = (
@@ -191,7 +192,7 @@ async def main(
                             jobs = [j for j in jobs if j.updated_at >= cutoff]
                         if location_terms:
                             jobs = [j for j in jobs if _matches_location(j, location_terms)]
-                        store.save_company(token, jobs, fetch_time_s=elapsed)
+                        await store.save_company(token, jobs, platform=platform, fetch_time_s=elapsed)
                         if out_queue is not None:
                             await out_queue.put((token, jobs))
                         async with lock:
@@ -209,7 +210,7 @@ async def main(
                         elapsed = time.monotonic() - t0
                         msg = f"blocked (HTTP {exc.status_code})"
                         logger.warning("Blocked by %s — skipping (retried next run)", company.name)
-                        store.record_error(token, "blocked", msg, fetch_time_s=elapsed)
+                        await store.record_error(token, "blocked", msg, platform=platform, fetch_time_s=elapsed)
                         if out_queue is not None:
                             await out_queue.put((token, []))
                         async with lock:
@@ -218,7 +219,7 @@ async def main(
                         elapsed = time.monotonic() - t0
                         msg = f"timeout after {timeout}s"
                         logger.warning("Scrape timed out: %s — skipping", company.name)
-                        store.record_error(token, "timeout", msg, fetch_time_s=elapsed)
+                        await store.record_error(token, "timeout", msg, platform=platform, fetch_time_s=elapsed)
                         if out_queue is not None:
                             await out_queue.put((token, []))
                         async with lock:
@@ -229,7 +230,7 @@ async def main(
                         # concisely — a full traceback here is noise at scale.
                         elapsed = time.monotonic() - t0
                         msg = f"HTTP {exc.response.status_code}"
-                        store.record_error(token, "error", msg, fetch_time_s=elapsed)
+                        await store.record_error(token, "error", msg, platform=platform, fetch_time_s=elapsed)
                         logger.warning("Failed to scrape %s: %s", company.name, msg)
                         async with lock:
                             counters["errors"] += 1
@@ -237,7 +238,7 @@ async def main(
                     except Exception as exc:
                         elapsed = time.monotonic() - t0
                         msg = str(exc)
-                        store.record_error(token, "error", msg, fetch_time_s=elapsed)
+                        await store.record_error(token, "error", msg, platform=platform, fetch_time_s=elapsed)
                         logger.exception("Failed to scrape %s", company.name)
                         async with lock:
                             counters["errors"] += 1
@@ -287,7 +288,7 @@ async def main(
                     run_board(workday_companies, workday_scraper, "workday_token", "workday"),
                 )
 
-        store.save_manifest(started_at)
+        await store.finalise_run(started_at, stats=dict(counters))
     finally:
         if out_queue is not None:
             await out_queue.put(None)
@@ -319,7 +320,8 @@ async def main(
             for name, msg in errors_detail:
                 console.print(f"      [red]{name}[/red]: {msg}")
         console.print(
-            f"\n[bold green]{counters['jobs']} total jobs[/bold green] saved to [cyan]data/scraped/{run_id}/[/cyan]"
+            f"\n[bold green]{counters['jobs']} total jobs[/bold green] saved to the database "
+            f"(run [cyan]{run_id}[/cyan])"
         )
 
 

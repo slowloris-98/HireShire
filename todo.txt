@@ -1,11 +1,7 @@
-- remove greenhouse second detail call
+- backfill db based on given records
 
-- insert workday and other portals as well.
 - insert google, microsoft and stand alone big tech
 - how are the slugs being collected
-
-
-update the slugs from the repo
 
 once pipeline is finished the final pipeline json / csv should be accesible from my phone
 

@@ -62,6 +62,7 @@ class ScraperSettings(BaseModel):
     company_timeout_s: float = 600.0
     max_age_hours: Optional[int] = None  # None = fetch all jobs regardless of age
     location_filter: list[str] = []      # empty = no filter; substring match against location + offices
+    db_path: str = "data/hireshire.db"   # shared SQLite datastore for all phases
 
     # Per-source throttling. Overridable via `settings.rate_limits` in config/scraper.yaml
     # (the YAML block replaces this dict wholesale). Sources absent from the map fall back

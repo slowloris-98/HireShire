@@ -1,8 +1,7 @@
 settings:
   dry_run: false                    # CRITICAL: set to false to actually submit applications
-  matches_dir: data/matches
-  applied_dir: data/applied
-  runs_dir: data/scraped
+  applied_dir: data/applied         # on-disk home for screenshots/ (records go to the applied table)
+  db_path: data/hireshire.db        # shared SQLite datastore — reads shortlisted matches, writes the applied table
   resume_path: data/resume_projects/Udayan_Resume.pdf
   headless: false                  # set to false to watch the browser while debugging
   inter_job_delay_s: 10            # seconds to wait between applications

@@ -15,6 +15,10 @@ data/tuned/
 data/pipeline_results/
 data/pipeline/
 data/seen_jobs.json
+# SQLite datastore (+ WAL/SHM sidecar files)
+data/hireshire.db
+data/hireshire.db-wal
+data/hireshire.db-shm
 .playwright-mcp
 
 # Resume (personal data)

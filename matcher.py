@@ -22,6 +22,7 @@ from hireshire.matcher.scorer import JobScorer, MatchResult, make_backend
 from hireshire.matcher.seen import SeenStore
 from hireshire.matcher.store import MatchStore
 from hireshire.matcher.title_filter import apply_title_filter
+from hireshire.storage.db import get_db
 from hireshire.storage.json_store import RunStore
 
 load_dotenv()
@@ -72,19 +73,18 @@ async def main(
     config = load_matcher_config("config/matcher.yaml")
     settings = config.settings
     effective_skip_llm = skip_llm or settings.skip_llm
+    db = get_db(settings.db_path)
 
     # --- Determine run_id ---
-    run_dir = None
     if in_queue is not None:
         if run_id is None:
             raise ValueError("run_id is required when using in_queue (orchestrator mode)")
     else:
-        run_dir = RunStore.latest_run(Path(settings.runs_dir))
-        if not run_dir:
+        run_id = RunStore.latest_run(db)
+        if not run_id:
             if not quiet:
-                console.print("[red]No scraper runs found in data/scraped/. Run python scraper.py first.[/red]")
+                console.print("[red]No scraper runs found in the database. Run python scraper.py first.[/red]")
             return
-        run_id = run_dir.name
 
     if not quiet:
         console.print(f"[bold]HireShire Matcher[/bold] — scoring jobs from run [cyan]{run_id}[/cyan]")
@@ -118,9 +118,9 @@ async def main(
     if not effective_skip_llm:
         backend = make_backend(settings, sem)
         scorer = JobScorer(settings=settings, backend=backend)
-    store = MatchStore(base_dir=Path(settings.matches_dir), run_id=run_id)
+    store = MatchStore(run_id=run_id, threshold=settings.threshold, db=db)
 
-    seen = SeenStore(Path(settings.matches_dir).parent / "seen_jobs.json")
+    seen = SeenStore(db=db)
 
     results: list[MatchResult] = []
 
@@ -146,7 +146,7 @@ async def main(
                 scored_at=datetime.now(timezone.utc),
                 source_run_id=run_id,
             )
-        store.append_result(result)
+        await store.append_result(result)
         # In queue mode, forward shortlisted (result, job) pairs immediately
         if (out_queue is not None
                 and not result.skipped
@@ -178,7 +178,7 @@ async def main(
                         if on_job_score:
                             on_job_score(j.board_token, j.title)
                         r = _passthrough_result(j, run_id)
-                        store.append_result(r)
+                        await store.append_result(r)
                         if out_queue is not None:
                             await out_queue.put((r, j))
                         results.append(r)
@@ -203,9 +203,9 @@ async def main(
         return
 
     # =========================================================
-    # Standalone mode: load jobs from disk (existing behaviour)
+    # Standalone mode: load jobs from the database (existing behaviour)
     # =========================================================
-    jobs = load_jobs(run_dir)
+    jobs = load_jobs(run_id, db=db)
     if not jobs:
         if not quiet:
             console.print("[yellow]No jobs found in the latest run. Run python scraper.py first.[/yellow]")
@@ -258,7 +258,7 @@ async def main(
         if effective_skip_llm:
             for j in jobs_to_score:
                 r = _passthrough_result(j, run_id)
-                store.append_result(r)
+                await store.append_result(r)
                 results.append(r)
                 progress.advance(task)
         else:
