@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.live import Live
 from rich.logging import RichHandler
-from rich.table import Table
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
 import matcher
 import scraper
@@ -143,14 +143,28 @@ async def _track_results(q: asyncio.Queue, results_dir: Path) -> None:
         logger.info("Tracked result: %s — %s", record["company"], record["title"])
 
 
-def _make_status_table(scrape: str, match: str) -> Table:
-    grid = Table.grid(padding=(0, 2))
-    grid.add_row("[dim]Scraping:[/dim]", f"[cyan]{scrape}[/cyan]")
-    grid.add_row("[dim]Matching:[/dim]", f"[cyan]{match}[/cyan]")
-    return grid
+def _make_progress() -> Progress:
+    """One Progress shared by every phase, rendered inside the single Live.
+
+    A per-task `count_str` field carries the human-readable count so one column
+    set renders both the determinate scrape bar and the count-up match/tune/apply
+    bars (BarColumn auto-pulses whenever a task's total is None).
+    """
+    return Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.fields[count_str]}"),
+        console=console,
+    )
 
 
-async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False, skip_llm: bool = False) -> None:
+async def run_pipeline(
+    skip_matcher: bool = False,
+    skip_tuner: bool = False,
+    skip_llm: bool = False,
+    apply: bool = False,
+) -> None:
     run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 
     results_dir = Path("data/pipeline") / run_id
@@ -162,23 +176,47 @@ async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False, ski
 
     q3: asyncio.Queue = asyncio.Queue()
 
-    status = {"scrape": "—", "match": "—"}
+    progress = _make_progress()
+    tasks: dict[str, int] = {}          # phase → task id (only active phases get one)
+    counts = {"match": 0, "tune": 0}    # streaming phases have no known total → count up
 
-    def on_company_start(name: str) -> None:
-        status["scrape"] = name
-        live.update(_make_status_table(status["scrape"], status["match"]))
+    def on_company_start(name: str, board: str, done: int, total: int) -> None:
+        if "scrape" not in tasks:
+            tasks["scrape"] = progress.add_task(
+                "[bold]Scraping[/bold]", total=total, count_str=f"0/{total}"
+            )
+        progress.update(
+            tasks["scrape"],
+            total=total,
+            completed=done,
+            description=f"[bold]Scraping[/bold] ({board}) {name}",
+            count_str=f"{done}/{total} ({total - done} left)",
+        )
 
     def on_job_score(board_token: str, title: str) -> None:
-        status["match"] = f"{board_token} — {title}"
-        live.update(_make_status_table(status["scrape"], status["match"]))
+        counts["match"] += 1
+        progress.update(
+            tasks["match"],
+            description=f"[bold]Matching[/bold] {board_token} — {title[:45]}",
+            count_str=f"{counts['match']} scored",
+        )
+
+    def on_tune(status: str, title: str, company: str) -> None:
+        counts["tune"] += 1
+        progress.update(
+            tasks["tune"],
+            description=f"[bold]Tuning[/bold] {company} — {title[:45]}",
+            count_str=f"{counts['tune']} processed",
+        )
 
     try:
-        with Live(_make_status_table("—", "—"), console=console, refresh_per_second=4) as live:
+        with Live(progress, console=console, refresh_per_second=4):
             if skip_matcher:
                 await scraper.main(quiet=True, run_id=run_id, on_company_start=on_company_start)
                 await q3.put(None)
                 await _track_results(q3, results_dir)
             elif skip_tuner:
+                tasks["match"] = progress.add_task("[bold]Matching[/bold]", total=None, count_str="0 scored")
                 q1: asyncio.Queue = asyncio.Queue()
                 q2: asyncio.Queue = asyncio.Queue()
                 await asyncio.gather(
@@ -188,14 +226,24 @@ async def run_pipeline(skip_matcher: bool = False, skip_tuner: bool = False, ski
                     _track_results(q3, results_dir),
                 )
             else:
+                tasks["match"] = progress.add_task("[bold]Matching[/bold]", total=None, count_str="0 scored")
+                tasks["tune"] = progress.add_task("[bold]Tuning[/bold]", total=None, count_str="0 processed")
                 q1: asyncio.Queue = asyncio.Queue()
                 q2: asyncio.Queue = asyncio.Queue()
                 await asyncio.gather(
                     scraper.main(out_queue=q1, quiet=True, run_id=run_id, on_company_start=on_company_start),
                     matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm, on_job_score=on_job_score),
-                    tuner.main(in_queue=q2, out_queue=q3, quiet=True),
+                    tuner.main(in_queue=q2, out_queue=q3, quiet=True, on_tune=on_tune),
                     _track_results(q3, results_dir),
                 )
+
+            # Apply runs inside the same Live so its bar shares this Progress —
+            # never a second Live. Requires tuned resumes, so gated like before.
+            if apply and not skip_tuner and not skip_matcher:
+                apply_task = progress.add_task("[bold]Applying[/bold]", total=None, count_str="running")
+                await _launch_apply()
+                progress.update(apply_task, count_str="done")
+
         logger.info("Pipeline complete — run %s", run_id)
     except Exception:
         logger.exception("Pipeline failed — run %s", run_id)
@@ -242,9 +290,12 @@ async def main() -> None:
         await asyncio.sleep(interval_s)
 
     while True:
-        await run_pipeline(skip_matcher=args.no_matcher, skip_tuner=args.no_tuner, skip_llm=args.no_llm)
-        if args.apply and not args.no_tuner and not args.no_matcher:
-            await _launch_apply()
+        await run_pipeline(
+            skip_matcher=args.no_matcher,
+            skip_tuner=args.no_tuner,
+            skip_llm=args.no_llm,
+            apply=args.apply,
+        )
         if args.once:
             break
         logger.info("Next run in %.1fh", args.interval)
