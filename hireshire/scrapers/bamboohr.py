@@ -118,7 +118,9 @@ class BambooHRScraper(AbstractScraper):
         self._detail_concurrency = max(1, detail_concurrency)
         self._detail_jitter_s = max(0.0, detail_jitter_s)
 
-    async def fetch_all(self, slug: str) -> list[Job]:
+    async def _fetch_list_entries(self, slug: str) -> list[dict]:
+        """Fetch the raw careers list (openings) for a slug. Raises SlugNotFoundError
+        when the board is dead (redirect to marketing site / 403 / 404 / 410 / non-JSON)."""
         # Fetch the list WITHOUT following redirects: a dead board 302-redirects to
         # the bamboohr.com marketing site, which is the clearest "slug not found" signal.
         try:
@@ -136,7 +138,18 @@ class BambooHRScraper(AbstractScraper):
         if "application/json" not in response.headers.get("content-type", ""):
             raise SlugNotFoundError("bamboohr", slug)
 
-        entries = (response.json() or {}).get("result", [])
+        return (response.json() or {}).get("result", [])
+
+    async def fetch_listings(self, slug: str) -> list[tuple[str, Optional[datetime]]]:
+        """List-only classification helper: return (title, None) per opening WITHOUT any
+        detail fetch. BambooHR's list carries no posting date (it lives on the detail
+        endpoint), but a careers list only exposes currently-open roles, so the caller
+        treats these as within any recent window. Raises SlugNotFoundError like fetch_all."""
+        entries = await self._fetch_list_entries(slug)
+        return [((e.get("jobOpeningName") or ""), None) for e in entries]
+
+    async def fetch_all(self, slug: str) -> list[Job]:
+        entries = await self._fetch_list_entries(slug)
         if not entries:
             return []
 

@@ -129,6 +129,18 @@ class WorkdayScraper(AbstractScraper):
         results = await asyncio.gather(*tasks)
         return [j for j in results if j is not None]
 
+    async def fetch_listings(self, token: str) -> list[tuple[str, Optional[datetime]]]:
+        """List-only classification helper: return (title, posted_date) per posting
+        WITHOUT any detail fetch. `posted_date` comes from the list-level relative
+        'postedOn' string and is None when absent/unparseable. Raises
+        SlugNotFoundError / BoardBlockedError exactly like `fetch_all`.
+
+        Instantiate the scraper with `cutoff=None` so `_fetch_all_pages` returns the
+        full board (the caller applies its own age window)."""
+        urls = _WorkdayUrls(token)
+        entries = await self._fetch_all_pages(token, urls)
+        return [((e.get("title") or ""), _parse_posted_on(e.get("postedOn"))) for e in entries]
+
     async def _fetch_all_pages(self, token: str, urls: _WorkdayUrls) -> list[dict]:
         entries: list[dict] = []
         offset = 0

@@ -1,3 +1,9 @@
+- so all the location facets for each workday is different and we might need to maintain applied facet json for each company.
+
+
+
+
+
 - backfill db based on given records
 
 - insert google, microsoft and stand alone big tech

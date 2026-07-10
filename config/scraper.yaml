@@ -16,15 +16,15 @@ settings:
   # the timeout budget from being burned on queue-wait). Keep roughly aligned with each board's
   # `rate_limits.concurrency` below — raise together to speed a board up (watch for 429/403).
   company_concurrency:
-    greenhouse: 32
+    greenhouse: 50
     lever: 15
     ashby: 10
-    bamboohr: 5
-    workday: 5
+    bamboohr: 50
+    workday: 20
 
   # Per-tenant detail-fetch fan-out (shared by the Workday + BambooHR list->detail boards):
   # caps concurrent detail requests per tenant and jitters them to avoid tripping per-tenant throttles.
-  detail_concurrency: 4
+  detail_concurrency: 10
   detail_jitter_s: 0.3
 
   # Greenhouse's list API already includes job content, so its per-job detail
@@ -39,8 +39,8 @@ settings:
   # listed; omitting one makes it fall back to the global `concurrency` above with no spacing.
   # These are host-safe widths (Greenhouse is cached/unlimited; the others throttle per-tenant).
   rate_limits:
-    greenhouse: { concurrency: 40, min_interval_s: 0.0 }
+    greenhouse: { concurrency: 50, min_interval_s: 0.0 }
     lever:      { concurrency: 15,  min_interval_s: 0.0 }
     ashby:      { concurrency: 10,  min_interval_s: 0.0 }
-    bamboohr:   { concurrency: 6,  min_interval_s: 0.0 }
-    workday:    { concurrency: 6,  min_interval_s: 0.0 }
+    bamboohr:   { concurrency: 50,  min_interval_s: 0.0 }
+    workday:    { concurrency: 20,  min_interval_s: 0.0 }

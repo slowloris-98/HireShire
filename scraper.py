@@ -35,6 +35,14 @@ console = Console()
 BAD_SLUGS_PATH = Path("config/bad_slugs.json")
 _PLATFORMS = ("ashby", "greenhouse", "lever", "bamboohr", "workday")
 
+# Companies confirmed to post no software-engineering roles (built by
+# scripts/build_no_swe.py). Only the list->detail boards are worth pruning this way.
+# Filtered out before any HTTP call, exactly like bad_slugs — but kept in a separate
+# file so the source *_companies.json lists are never mutated and a company can be
+# re-admitted just by deleting its line here.
+NO_SWE_PATH = Path("config/no_swe.json")
+_NO_SWE_PLATFORMS = ("bamboohr", "workday")
+
 
 def _load_bad_slugs() -> dict[str, set[str]]:
     if BAD_SLUGS_PATH.exists():
@@ -46,6 +54,20 @@ def _load_bad_slugs() -> dict[str, set[str]]:
 def _save_bad_slugs(bad: dict[str, set[str]]) -> None:
     BAD_SLUGS_PATH.write_text(
         json.dumps({p: sorted(bad[p]) for p in _PLATFORMS}, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _load_no_swe() -> dict[str, set[str]]:
+    if NO_SWE_PATH.exists():
+        raw = json.loads(NO_SWE_PATH.read_text(encoding="utf-8"))
+        return {p: set(raw.get(p, [])) for p in _NO_SWE_PLATFORMS}
+    return {p: set() for p in _NO_SWE_PLATFORMS}
+
+
+def _save_no_swe(no_swe: dict[str, set[str]]) -> None:
+    NO_SWE_PATH.write_text(
+        json.dumps({p: sorted(no_swe[p]) for p in _NO_SWE_PLATFORMS}, indent=2),
         encoding="utf-8",
     )
 
@@ -80,13 +102,20 @@ async def main(
     settings = config.settings
 
     bad_slugs = _load_bad_slugs()
-    total_skipped = sum(len(v) for v in bad_slugs.values())
+    no_swe = _load_no_swe()
+    total_skipped = sum(len(v) for v in bad_slugs.values()) + sum(len(v) for v in no_swe.values())
 
     ashby_companies = [c for c in config.ashby_companies if c.ashby_token not in bad_slugs["ashby"]]
     greenhouse_companies = [c for c in config.greenhouse_companies if c.greenhouse_token not in bad_slugs["greenhouse"]]
     lever_companies = [c for c in config.lever_companies if c.lever_token not in bad_slugs["lever"]]
-    bamboohr_companies = [c for c in config.bamboohr_companies if c.bamboohr_token not in bad_slugs["bamboohr"]]
-    workday_companies = [c for c in config.workday_companies if c.workday_token not in bad_slugs["workday"]]
+    bamboohr_companies = [
+        c for c in config.bamboohr_companies
+        if c.bamboohr_token not in bad_slugs["bamboohr"] and c.bamboohr_token not in no_swe["bamboohr"]
+    ]
+    workday_companies = [
+        c for c in config.workday_companies
+        if c.workday_token not in bad_slugs["workday"] and c.workday_token not in no_swe["workday"]
+    ]
 
     if not (greenhouse_companies or lever_companies or ashby_companies or bamboohr_companies or workday_companies):
         if not quiet:
@@ -193,7 +222,7 @@ async def main(
                         if location_terms:
                             jobs = [j for j in jobs if _matches_location(j, location_terms)]
                         await store.save_company(token, jobs, platform=platform, fetch_time_s=elapsed)
-                        if out_queue is not None:
+                        if out_queue is not None and jobs:
                             await out_queue.put((token, jobs))
                         async with lock:
                             counters["jobs"] += len(jobs)
@@ -203,16 +232,12 @@ async def main(
                         async with lock:
                             newly_bad[exc.platform].append(exc.token)
                             counters["not_found"] += 1
-                        if out_queue is not None:
-                            await out_queue.put((token, []))
                     except BoardBlockedError as exc:
                         # Access refused (WAF/edge). Not pruned — retried next run.
                         elapsed = time.monotonic() - t0
                         msg = f"blocked (HTTP {exc.status_code})"
                         logger.warning("Blocked by %s — skipping (retried next run)", company.name)
                         await store.record_error(token, "blocked", msg, platform=platform, fetch_time_s=elapsed)
-                        if out_queue is not None:
-                            await out_queue.put((token, []))
                         async with lock:
                             counters["blocked"] += 1
                     except asyncio.TimeoutError:
@@ -220,8 +245,6 @@ async def main(
                         msg = f"timeout after {timeout}s"
                         logger.warning("Scrape timed out: %s — skipping", company.name)
                         await store.record_error(token, "timeout", msg, platform=platform, fetch_time_s=elapsed)
-                        if out_queue is not None:
-                            await out_queue.put((token, []))
                         async with lock:
                             counters["errors"] += 1
                             errors_detail.append((company.name, msg))

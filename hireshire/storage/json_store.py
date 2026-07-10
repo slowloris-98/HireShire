@@ -47,7 +47,7 @@ class RunStore:
         )
         if jobs:  # zero-job companies get a metadata row only — no job rows written
             await asyncio.to_thread(self._db.insert_jobs, self.run_id, jobs)
-        logger.info("Saved %d jobs for %s", len(jobs), board_token)
+            logger.info("Saved %d jobs for %s", len(jobs), board_token)
 
     async def record_error(
         self,
