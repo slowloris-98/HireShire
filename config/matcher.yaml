@@ -53,3 +53,30 @@ title_filter:
     - co-op
     - Sr.
     - Sr
+
+# Funnel: the relevance gate at the matcher's entry point. Runs the code exclude/
+# include filter above, then an encoder (MiniLM) semantic check on the survivors,
+# then lazily fetches the description for any surviving list-only Workday/BambooHR
+# job (see config/scraper.yaml `scrape_details: false`). Disable to fall back to the
+# plain code title filter (only safe when the scraper still fetched descriptions).
+funnel:
+  enabled: true
+  encoder:
+    model: sentence-transformers/all-MiniLM-L6-v2   # any sentence-transformers model
+    # Semantic anchors for the target job type. Retarget (e.g. ["strategy", "strategist"])
+    # to reuse this funnel for a different hunt without touching code.
+    targets:
+      - software engineer
+      - backend engineer
+      - machine learning engineer
+      - ai engineer
+      - data scientist
+      - applied ai
+      - full stack developer
+      - solutions architect
+      - forward deployed engineer
+    threshold: 0.35   # min cosine similarity to pass — NEEDS empirical tuning on real titles
+  detail_fetch:
+    concurrency: 10   # concurrent detail hydrations
+    jitter_s: 0.3
+    timeout_s: 20

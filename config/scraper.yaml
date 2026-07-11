@@ -27,6 +27,13 @@ settings:
   detail_concurrency: 10
   detail_jitter_s: 0.3
 
+  # List->detail boards (Workday, BambooHR): false = scrape list-only and DEFER the
+  # per-job description fetch to the matcher funnel, which hydrates only jobs that pass
+  # its title/relevance gate (big traffic saving). COUPLED to config/matcher.yaml's
+  # `funnel.enabled: true` — with the funnel off, these jobs reach the scorer with no
+  # content and get skipped. Set true to fetch descriptions during scraping (old behaviour).
+  scrape_details: false
+
   # Greenhouse's list API already includes job content, so its per-job detail
   # fetch only adds application questions (used by Phase 4 applier). false skips
   # that extra per-job call for a big scrape speedup; set true to keep questions.

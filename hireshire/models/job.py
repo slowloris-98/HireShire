@@ -45,6 +45,11 @@ class Job(BaseModel):
     requisition_id: Optional[str] = None
 
     content_text: Optional[str] = None
+    # For list->detail boards scraped in list-only mode (content_text deferred to
+    # the matcher funnel): the source-specific key needed to re-fetch the detail
+    # page. Workday stores its `externalPath` here (job_id is not always the path);
+    # BambooHR needs none (rebuilds from board_token + job_id).
+    detail_path: Optional[str] = None
 
     questions: list[ApplicationQuestion] = []
     detail_fetch_failed: bool = False

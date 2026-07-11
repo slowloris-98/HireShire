@@ -5,6 +5,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel
 
+from hireshire.funnel.config import FunnelConfig
+
 
 class MatcherSettings(BaseModel):
     threshold: int = 70
@@ -29,6 +31,7 @@ class TitleFilterConfig(BaseModel):
 class MatcherConfig(BaseModel):
     settings: MatcherSettings
     title_filter: TitleFilterConfig = TitleFilterConfig()
+    funnel: FunnelConfig = FunnelConfig()
 
 
 def load_matcher_config(path: str | Path = "config/matcher.yaml") -> MatcherConfig:
@@ -36,4 +39,5 @@ def load_matcher_config(path: str | Path = "config/matcher.yaml") -> MatcherConf
     return MatcherConfig(
         settings=MatcherSettings(**raw.get("settings", {})),
         title_filter=TitleFilterConfig(**raw.get("title_filter", {})),
+        funnel=FunnelConfig(**raw.get("funnel", {})),
     )

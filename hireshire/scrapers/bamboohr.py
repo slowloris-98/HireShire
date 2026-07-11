@@ -67,6 +67,7 @@ def _parse_job(
     list_entry: dict,
     detail: Optional[dict],
     scraped_at: datetime,
+    deferred: bool = False,
 ) -> Optional[Job]:
     try:
         job_id = str(list_entry["id"])
@@ -93,7 +94,9 @@ def _parse_job(
             updated_at=updated_at,
             content_text=content_html,
             questions=questions,
-            detail_fetch_failed=(detail is None),
+            # detail is None both when a fetch failed and in list-only mode where it
+            # was never attempted (`deferred=True`); only the former is a failure.
+            detail_fetch_failed=(detail is None and not deferred),
             scraped_at=scraped_at,
         )
     except (KeyError, ValidationError, AttributeError) as exc:
@@ -111,12 +114,14 @@ class BambooHRScraper(AbstractScraper):
         retry_attempts: int = 3,
         detail_concurrency: int = 4,
         detail_jitter_s: float = 0.3,
+        fetch_detail: bool = True,
     ):
         self._client = client
         self._limiter = limiter
         self._retry = make_retry_decorator(retry_attempts)
         self._detail_concurrency = max(1, detail_concurrency)
         self._detail_jitter_s = max(0.0, detail_jitter_s)
+        self._fetch_detail = fetch_detail
 
     async def _fetch_list_entries(self, slug: str) -> list[dict]:
         """Fetch the raw careers list (openings) for a slug. Raises SlugNotFoundError
@@ -154,11 +159,38 @@ class BambooHRScraper(AbstractScraper):
             return []
 
         scraped_at = datetime.now(timezone.utc)
+
+        # List-only mode: skip the per-job detail fetch and defer the description to
+        # the matcher funnel, which hydrates only jobs that pass its relevance gate.
+        if not self._fetch_detail:
+            jobs = [_parse_job(slug, e, None, scraped_at, deferred=True) for e in entries]
+            return [j for j in jobs if j is not None]
+
         # Per-tenant cap: a large board must not fire hundreds of detail fetches at once.
         detail_sem = asyncio.Semaphore(self._detail_concurrency)
         tasks = [self._fetch_detail_and_parse(slug, entry, scraped_at, detail_sem) for entry in entries]
         results = await asyncio.gather(*tasks)
         return [j for j in results if j is not None]
+
+    async def fetch_detail(self, job: Job) -> Job:
+        """Hydrate a list-only Job with its description via the careers detail endpoint.
+
+        Rebuilds the detail URL from board_token (slug) + job_id. Returns a new Job
+        (validated so content_text HTML->text stripping runs); on failure returns the
+        job with `detail_fetch_failed=True`."""
+        try:
+            response = await self._get(DETAIL_URL.format(slug=job.board_token, job_id=job.job_id))
+            opening = ((response.json() or {}).get("result") or {}).get("jobOpening") or {}
+            raw_html = opening.get("description")
+        except Exception as exc:
+            logger.warning("Detail hydrate failed for BambooHR job %s/%s: %s", job.board_token, job.job_id, exc)
+            return job.model_validate({**job.model_dump(), "detail_fetch_failed": True})
+
+        return job.model_validate({
+            **job.model_dump(),
+            "content_text": raw_html,
+            "detail_fetch_failed": raw_html is None,
+        })
 
     async def _fetch_detail_and_parse(
         self, slug: str, list_entry: dict, scraped_at: datetime, detail_sem: asyncio.Semaphore

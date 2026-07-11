@@ -181,10 +181,12 @@ async def main(
             bamboohr_scraper = BambooHRScraper(
                 client, settings.make_limiter("bamboohr"), settings.retry_attempts,
                 detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
+                fetch_detail=settings.scrape_details,
             )
             workday_scraper = WorkdayScraper(
                 client, settings.make_limiter("workday"), settings.retry_attempts, cutoff=cutoff,
                 detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
+                fetch_detail=settings.scrape_details,
             )
 
             total_companies = (
