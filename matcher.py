@@ -16,6 +16,7 @@ from rich.logging import RichHandler
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from hireshire.funnel.detail_fetcher import DETAIL_SOURCES
 from hireshire.funnel.funnel import Funnel
 from hireshire.matcher.config import load_matcher_config
 from hireshire.matcher.loader import load_jobs
@@ -39,6 +40,23 @@ class _NoopProgress:
     def add_task(self, *a, **kw): return 0
     def __enter__(self): return self
     def __exit__(self, *a): pass
+
+
+async def _persist_hydrated_details(db, run_id: str, to_score) -> None:
+    """Upsert funnel-hydrated Workday/BambooHR descriptions back to the jobs table.
+
+    List-only rows are scraped with content_text=NULL and hydrated by the funnel
+    in-memory only, so without this DB-backed readers (standalone tuner/apply,
+    re-runs, pipeline/jobs exports) never see the description. `insert_jobs` is an
+    INSERT OR REPLACE on (run_id, job_id) — it upserts the scrape-time row in
+    place, updating content_text and detail_fetch_failed (carried in raw_json).
+    Only detail-board survivors are touched; other boards already carry content."""
+    changed = [
+        j for j in to_score
+        if j.source in DETAIL_SOURCES and (j.content_text or j.detail_fetch_failed)
+    ]
+    if changed:
+        await asyncio.to_thread(db.insert_jobs, run_id, changed)
 
 
 def _passthrough_result(job, run_id: str) -> MatchResult:
@@ -165,8 +183,11 @@ async def main(
 
     async def gate(job_list):
         if funnel is not None:
-            return await funnel.process(job_list)
-        return apply_title_filter(job_list, config.title_filter, run_id)
+            to_score, filtered = await funnel.process(job_list)
+        else:
+            to_score, filtered = apply_title_filter(job_list, config.title_filter, run_id)
+        await _persist_hydrated_details(db, run_id, to_score)
+        return to_score, filtered
 
     async with AsyncExitStack() as _stack:
         if funnel is not None:

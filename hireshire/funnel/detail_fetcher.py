@@ -14,7 +14,7 @@ from hireshire.scrapers.workday import WorkdayScraper
 logger = logging.getLogger(__name__)
 
 # Boards whose description lives behind a separate per-job detail call.
-_DETAIL_SOURCES = ("workday", "bamboohr")
+DETAIL_SOURCES = ("workday", "bamboohr")
 
 
 class DetailFetcher:
@@ -61,4 +61,15 @@ class DetailFetcher:
 
         if not jobs:
             return []
-        return list(await asyncio.gather(*[_one(j) for j in jobs]))
+
+        needed = sum(1 for j in jobs if j.source in self._scrapers and not j.content_text)
+        result = list(await asyncio.gather(*[_one(j) for j in jobs]))
+        if needed:
+            # A hydrated job with detail_fetch_failed set means the detail call errored
+            # or returned no description. Everything else in `needed` was fetched OK.
+            failed = sum(1 for j in result if j.source in self._scrapers and j.detail_fetch_failed)
+            logger.info(
+                "Detail API: hydrated %d/%d list-only jobs (%d failed)",
+                needed - failed, needed, failed,
+            )
+        return result
