@@ -23,7 +23,7 @@ from hireshire.matcher.loader import load_jobs
 from hireshire.matcher.resume import extract_resume_text
 from hireshire.matcher.scorer import JobScorer, MatchResult, make_backend
 from hireshire.matcher.seen import SeenStore
-from hireshire.matcher.store import MatchStore
+from hireshire.matcher.store import MatchStore, is_shortlisted
 from hireshire.matcher.title_filter import apply_title_filter
 from hireshire.storage.db import get_db
 from hireshire.storage.json_store import RunStore
@@ -66,7 +66,7 @@ def _passthrough_result(job, run_id: str) -> MatchResult:
         title=job.title,
         location=job.location.name,
         absolute_url=str(job.absolute_url),
-        relevance_score=100,
+        relevance_score=None,
         match_reasons=["LLM scoring skipped"],
         disqualifiers=[],
         recommend=True,
@@ -168,9 +168,7 @@ async def main(
             )
         await store.append_result(result)
         # In queue mode, forward shortlisted (result, job) pairs immediately
-        if (out_queue is not None
-                and not result.skipped
-                and result.relevance_score >= settings.threshold):
+        if out_queue is not None and is_shortlisted(result, settings.threshold):
             await out_queue.put((result, job))
         return result
 
@@ -229,9 +227,9 @@ async def main(
                 for r in results:
                     seen.add(r.job_id)
                 seen.save()
-                shortlisted = [r for r in results if not r.skipped and r.relevance_score >= settings.threshold]
-                rejected = [r for r in results if r.skipped or r.relevance_score < settings.threshold]
-                shortlisted.sort(key=lambda r: r.relevance_score, reverse=True)
+                shortlisted = [r for r in results if is_shortlisted(r, settings.threshold)]
+                rejected = [r for r in results if not is_shortlisted(r, settings.threshold)]
+                shortlisted.sort(key=lambda r: (r.relevance_score or 0), reverse=True)
                 store.finalise(shortlisted, rejected, started_at, settings.threshold, settings.model, len(results))
                 logger.info(
                     "Matcher done: %d shortlisted, %d rejected → data/matches/%s/",
@@ -309,9 +307,9 @@ async def main(
 
                 results += list(await asyncio.gather(*[score_one_p(j) for j in jobs_to_score]))
 
-        shortlisted = [r for r in results if not r.skipped and r.relevance_score >= settings.threshold]
-        rejected = [r for r in results if r.skipped or r.relevance_score < settings.threshold]
-        shortlisted.sort(key=lambda r: r.relevance_score, reverse=True)
+        shortlisted = [r for r in results if is_shortlisted(r, settings.threshold)]
+        rejected = [r for r in results if not is_shortlisted(r, settings.threshold)]
+        shortlisted.sort(key=lambda r: (r.relevance_score or 0), reverse=True)
         store.finalise(shortlisted, rejected, started_at, settings.threshold, settings.model, len(jobs))
         for r in results:
             seen.add(r.job_id)
@@ -328,7 +326,7 @@ async def main(
                 table.add_column("Recommend", width=10)
                 for r in shortlisted:
                     table.add_row(
-                        str(r.relevance_score),
+                        "—" if r.relevance_score is None else str(r.relevance_score),
                         r.title,
                         r.board_token,
                         r.location,

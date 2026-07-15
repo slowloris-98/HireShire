@@ -14,5 +14,5 @@ settings:
   email: udayan.atreya@gmail.com
   phone: "6693406033"
 
-  generate_cover_letter: true
+  generate_cover_letter: false
   model: gpt-4o-mini               # LLM for answer generation and browser agent

@@ -39,7 +39,7 @@ class MatchResult(BaseModel):
     location: str
     absolute_url: str
 
-    relevance_score: int
+    relevance_score: Optional[int] = None  # None = never scored (skip_llm)
     years_experience_required: Optional[float] = None
     core_skills_score: int = 0
     core_skills_rationale: str = ""

@@ -3,9 +3,10 @@ One-time backfill: load legacy per-phase JSON archives into the shared SQLite DB
 
 The storage layer was migrated to `data/hireshire.db` but the historical data on
 disk (data/seen_jobs.json, data/scraped/<run>/, data/matches/<run>/,
-data/applied/applied.json) was never imported. This script imports all four,
-preserving full per-run history (one DB run per JSON run dir). It is idempotent:
-rows use INSERT OR REPLACE, so re-running overwrites rather than duplicates.
+data/pipeline/<run>/, data/applied/applied.json) was never imported. This script
+imports all five, preserving full per-run history (one DB run per JSON run dir).
+It is idempotent: rows use INSERT OR REPLACE, so re-running overwrites rather
+than duplicates.
 
     python scripts/backfill_from_json.py --dry-run   # parse + count, write nothing
     python scripts/backfill_from_json.py             # backfill everything (default --all)
@@ -32,6 +33,7 @@ from hireshire.models.job import Job
 from hireshire.storage.db import (
     DEFAULT_DB_PATH,
     PHASE_MATCH,
+    PHASE_PIPELINE,
     PHASE_SCRAPE,
     Database,
     get_db,
@@ -253,7 +255,88 @@ def backfill_matches(db: Database, data_dir: Path, dry_run: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. applied
+# 4. pipeline
+# ---------------------------------------------------------------------------
+
+def backfill_pipeline(db: Database, data_dir: Path, dry_run: bool) -> None:
+    """Import data/pipeline/<run>/pipeline_results.json.
+
+    `pipeline_results` only became a DB table on 2026-07-08; earlier orchestrator
+    runs wrote their results to disk only. Runs interrupted before
+    `_finalise_pipeline` have no JSON (their CSV is header-only) and are skipped.
+
+    The archives predate nullable scores: an LLM-skipped job was stamped
+    `relevance_score: 100`. That score is dropped on import for any record whose
+    matches row says `llm_skipped` — the same discriminator
+    scripts/backfill_null_scores.py uses. Records with no matches row cannot be
+    classified, so their on-disk score is imported unchanged rather than guessed.
+    """
+    base = data_dir / "pipeline"
+    run_dirs = _run_dirs(base)
+    console.print(f"[bold]pipeline:[/bold] {len(run_dirs)} run dir(s) under {base}")
+
+    total_ok = 0
+    runs_imported = 0
+    total_nulled = 0
+    total_unclassified = 0
+    for rd in run_dirs:
+        run_id = rd.name
+        path = rd / "pipeline_results.json"
+        if not path.exists():
+            continue
+        try:
+            records = _load_json(path)
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"  [yellow]{run_id}: unreadable pipeline_results.json ({exc})[/yellow]")
+            continue
+        if not isinstance(records, list) or not records:
+            continue
+
+        matches = {str(m.get("job_id")): m.get("skip_reason") for m in db.load_matches(run_id)}
+        statuses: dict[str, int] = {}
+        nulled = unclassified = 0
+        for rec in records:
+            if not isinstance(rec, dict) or not rec.get("job_id"):
+                continue
+            statuses[rec.get("tuner_status")] = statuses.get(rec.get("tuner_status"), 0) + 1
+
+            job_id = str(rec["job_id"])
+            if job_id not in matches:
+                if rec.get("relevance_score") is not None:
+                    unclassified += 1
+            elif matches[job_id] == "llm_skipped":
+                rec = {**rec, "relevance_score": None}
+                nulled += 1
+
+            if not dry_run:
+                db.record_pipeline_result(run_id, rec)
+
+        imported = sum(statuses.values())
+        if not imported:
+            continue
+        total_ok += imported
+        runs_imported += 1
+        total_nulled += nulled
+        total_unclassified += unclassified
+
+        if not dry_run:
+            stats = {"total_results": imported,
+                     **{f"{k or 'unknown'}_count": v for k, v in statuses.items()}}
+            db.finalise_run(run_id, PHASE_PIPELINE, run_id_to_iso(run_id), None, stats)
+
+        console.print(f"  [dim]{run_id}[/dim]: {imported} result(s) {statuses}")
+
+    console.print(
+        f"  [green]{'would import' if dry_run else 'imported'} {total_ok:,} pipeline rows "
+        f"across {runs_imported} runs[/green]"
+        f" [dim]({total_nulled:,} llm_skipped scores dropped)[/dim]"
+        + (f" [yellow]({total_unclassified} scores kept — no matches row to classify them)[/yellow]"
+           if total_unclassified else "")
+    )
+
+
+# ---------------------------------------------------------------------------
+# 5. applied
 # ---------------------------------------------------------------------------
 
 def backfill_applied(db: Database, data_dir: Path, dry_run: bool) -> None:
@@ -298,6 +381,7 @@ def main() -> None:
     parser.add_argument("--seen", action="store_true", help="Backfill seen_jobs")
     parser.add_argument("--scraped", action="store_true", help="Backfill scraped jobs + companies")
     parser.add_argument("--matches", action="store_true", help="Backfill matcher results")
+    parser.add_argument("--pipeline", action="store_true", help="Backfill orchestrator pipeline results")
     parser.add_argument("--applied", action="store_true", help="Backfill applied records")
     parser.add_argument("--data-dir", default="data", help="Root of the legacy JSON archives")
     parser.add_argument("--db-path", default=DEFAULT_DB_PATH, help="Path to the SQLite database")
@@ -305,18 +389,23 @@ def main() -> None:
     args = parser.parse_args()
 
     # No explicit phase flags -> do everything.
-    do_all = args.all or not (args.seen or args.scraped or args.matches or args.applied)
+    do_all = args.all or not (
+        args.seen or args.scraped or args.matches or args.pipeline or args.applied
+    )
     data_dir = Path(args.data_dir)
     db = get_db(args.db_path)
 
     if args.dry_run:
         console.print("[yellow]DRY RUN — no writes[/yellow]\n")
 
-    # User's stated order: seen -> matches -> applied -> scraped.
+    # User's stated order: seen -> matches -> applied -> scraped. Pipeline follows
+    # matches, since its rows describe jobs the matcher shortlisted.
     if do_all or args.seen:
         backfill_seen(db, data_dir, args.dry_run)
     if do_all or args.matches:
         backfill_matches(db, data_dir, args.dry_run)
+    if do_all or args.pipeline:
+        backfill_pipeline(db, data_dir, args.dry_run)
     if do_all or args.applied:
         backfill_applied(db, data_dir, args.dry_run)
     if do_all or args.scraped:

@@ -27,7 +27,7 @@ export default function ChatPanel() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const setChatJobIds = useStore((s) => s.setChatJobIds);
+  const setChatResults = useStore((s) => s.setChatResults);
   const refresh = useStore((s) => s.refresh);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -73,8 +73,8 @@ export default function ChatPanel() {
               } catch {}
             } else if (event === "job_results") {
               try {
-                const { job_ids } = JSON.parse(data);
-                setChatJobIds(job_ids as string[]);
+                const { job_ids, run_id } = JSON.parse(data);
+                setChatResults(job_ids as string[], (run_id ?? null) as string | null);
                 refresh();
               } catch {}
             } else if (event === "run_proposal") {
@@ -111,7 +111,7 @@ export default function ChatPanel() {
   return (
     <div className="panel chat">
       <div className="panel-head">
-        💬 Chat with your data <span className="sub">ask about jobs, runs, and settings</span>
+        HireShire <span className="sub">ask about jobs, runs, and settings</span>
       </div>
       <div className="panel-body" ref={bodyRef}>
         {messages.length === 0 && (

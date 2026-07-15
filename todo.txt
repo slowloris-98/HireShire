@@ -1,17 +1,19 @@
 prior:
+    - chat:
+        - incorrect response for how many jobs I have applied to.
+        - the agent should generate the db query on the fly based on user query? or should it have more tools exposed.
+    
     - move to backend folder - the backend part
-    - merge design decisions and designs
     - keep the readme clean short and to the point, 
-        - remove all my personal details from the readme
         - add screenshots 
         - video link
-    - support md display in chat
 
-    - do something about the scores, dont set them as 100, instead keep them null
+    - do something about the scores, don't set them as 100, instead keep them null
     - the whole pipeline should be recorded along with the applier.
     - check the links in the job listings section
     - remove emoji if any
-    - ui beautification, equal spaces between fields, add and remove job boards as well.
+    - ui beautification, 
+        - add some more padding spaces between fields, add and remove job boards as well.
 
 
 - can update the applied jobs from using the same email storage layer and checking if recieved an email like thankyou for applying.

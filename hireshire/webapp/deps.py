@@ -87,6 +87,42 @@ class ReadDB:
         )
         return [dict(r) for r in rows]
 
+    def load_pipeline_results_all(self) -> list[dict]:
+        """Every job across every run, collapsed to one row per job.
+
+        A recurring job is kept from its *most informative* run rather than simply
+        its newest: a later skip-LLM/no-tuner run would otherwise mask a real score
+        and a tuned PDF earned in an earlier one. Priority is has-resume, then
+        has-score, then newest (`run_id` is a sortable ISO timestamp). Every field
+        comes from that one run, so `run_id` still addresses the resume PDF.
+
+        The matches join supplies `location`, which pipeline_results has no column
+        for — the alternative source, the `jobs` table, is multi-GB and has no index
+        on job_id alone, so a cross-run lookup there would scan it. The join here
+        uses the matches PK (run_id, job_id).
+        """
+        rows = self._q(
+            "SELECT p.run_id, p.job_id, p.company, p.title, p.job_url, "
+            "p.relevance_score, p.resume_tex, p.resume_pdf, p.tuner_status, "
+            "p.processed_at, m.raw_json "
+            "FROM (SELECT *, ROW_NUMBER() OVER ("
+            "        PARTITION BY job_id ORDER BY (resume_pdf IS NOT NULL) DESC, "
+            "        (relevance_score IS NOT NULL) DESC, run_id DESC) AS rn "
+            "      FROM pipeline_results) p "
+            "LEFT JOIN matches m ON m.run_id = p.run_id AND m.job_id = p.job_id "
+            "WHERE p.rn = 1"
+        )
+        out = []
+        for r in rows:
+            d = dict(r)
+            raw = d.pop("raw_json", None)
+            try:
+                d["location"] = json.loads(raw).get("location") if raw else None
+            except Exception:
+                d["location"] = None
+            out.append(d)
+        return out
+
     def load_shortlisted(self, run_id: str) -> list[dict]:
         rows = self._q(
             "SELECT raw_json FROM matches WHERE run_id=? AND shortlisted=1 "

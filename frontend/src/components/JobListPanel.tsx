@@ -7,7 +7,8 @@ export default function JobListPanel() {
   const filter = useStore((s) => s.filter);
   const setFilter = useStore((s) => s.setFilter);
   const chatJobIds = useStore((s) => s.chatJobIds);
-  const setChatJobIds = useStore((s) => s.setChatJobIds);
+  const chatRunId = useStore((s) => s.chatRunId);
+  const setChatResults = useStore((s) => s.setChatResults);
   const refreshKey = useStore((s) => s.refreshKey);
 
   const [rows, setRows] = useState<JobRow[]>([]);
@@ -20,10 +21,20 @@ export default function JobListPanel() {
   }, []);
 
   useEffect(() => {
+    // An empty chat result means "no jobs matched" — show nothing. Fetching with
+    // an empty job_ids would drop the filter and return the whole run instead.
+    if (chatJobIds && chatJobIds.length === 0) {
+      setRows([]);
+      setErr(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setErr(null);
     const params: Record<string, string | number | undefined> = chatJobIds
-      ? { job_ids: chatJobIds.join(","), run_id: filter.run_id }
+      ? // Scope must match the one the chat resolved the ids against — /api/jobs
+        // ANDs run_id with job_ids, so the panel's own filter would empty the list.
+        { job_ids: chatJobIds.join(","), run_id: chatRunId ?? filter.run_id }
       : {
           run_id: filter.run_id,
           min_score: filter.min_score,
@@ -36,14 +47,14 @@ export default function JobListPanel() {
       .then(setRows)
       .catch((e) => setErr(String(e)))
       .finally(() => setLoading(false));
-  }, [filter, chatJobIds, refreshKey]);
+  }, [filter, chatJobIds, chatRunId, refreshKey]);
 
   return (
     <div className="panel">
       <div className="panel-head">
         📋 Jobs <span className="sub">{rows.length} shown</span>
         {chatJobIds && (
-          <button className="ghost" style={{ marginLeft: "auto" }} onClick={() => setChatJobIds(null)}>
+          <button className="ghost" style={{ marginLeft: "auto" }} onClick={() => setChatResults(null, null)}>
             Showing chat results — clear
           </button>
         )}
@@ -54,6 +65,7 @@ export default function JobListPanel() {
             <label>Run</label>
             <select value={filter.run_id ?? ""} onChange={(e) => setFilter({ run_id: e.target.value || undefined })}>
               <option value="">latest</option>
+              <option value="all">all runs</option>
               {runIds.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -87,6 +99,7 @@ export default function JobListPanel() {
             <tr>
               <th>Title</th>
               <th>Company</th>
+              <th>Run</th>
               <th>Score</th>
               <th>Job</th>
               <th>Resume</th>
@@ -98,6 +111,9 @@ export default function JobListPanel() {
               <tr key={r.job_id}>
                 <td title={r.job_id}>{r.title}</td>
                 <td className="muted">{r.company}</td>
+                <td className="muted" title={r.run_id ?? undefined}>
+                  {r.run_id ? r.run_id.slice(0, 10) : "—"}
+                </td>
                 <td className="score">{r.relevance_score ?? "—"}</td>
                 <td>
                   {r.job_url ? (
@@ -124,7 +140,7 @@ export default function JobListPanel() {
             ))}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">No jobs match.</td>
+                <td colSpan={7} className="muted">No jobs match.</td>
               </tr>
             )}
           </tbody>
