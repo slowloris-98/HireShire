@@ -322,7 +322,7 @@ async def main() -> None:
     )
     parser.add_argument(
         "--no-tuner", action="store_true",
-        help="Run scraper and matcher only; skip tuner",
+        help="Force-skip the tuner (overrides config/tuner.yaml enable_tuner)",
     )
     parser.add_argument(
         "--no-matcher", action="store_true",
@@ -334,11 +334,19 @@ async def main() -> None:
     )
     parser.add_argument(
         "--apply", action="store_true",
-        help="After each pipeline run, invoke the /apply skill to submit applications",
+        help="Force-enable the applier (overrides config/applier.yaml enable_applier)",
     )
     args = parser.parse_args()
 
     _setup_logging()
+
+    # Phase toggles default from config (enable_tuner / enable_applier); the CLI
+    # flags remain as explicit overrides so existing invocations keep working.
+    from hireshire.applier.config import load_applier_config
+    from hireshire.tuner.config import load_tuner_config
+
+    skip_tuner = args.no_tuner or not load_tuner_config().settings.enable_tuner
+    apply = args.apply or load_applier_config().settings.enable_applier
 
     interval_s = args.interval * 3600
 
@@ -349,9 +357,9 @@ async def main() -> None:
     while True:
         await run_pipeline(
             skip_matcher=args.no_matcher,
-            skip_tuner=args.no_tuner,
+            skip_tuner=skip_tuner,
             skip_llm=args.no_llm,
-            apply=args.apply,
+            apply=apply,
         )
         if args.once:
             break

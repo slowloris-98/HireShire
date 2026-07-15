@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 
 class TunerSettings(BaseModel):
+    enable_tuner: bool = True  # dashboard/orchestrator default: run the tuner phase
     resume_tex_path: str = "data/resume_projects/Udayan_Resume.tex"
     resume_template_path: str = "data/resume_projects/resume_template.tex"
     projects_bullets_path: str = "data/resume_projects/projects_bullets.yaml"

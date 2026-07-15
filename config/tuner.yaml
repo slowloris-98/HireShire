@@ -1,4 +1,5 @@
 settings:
+  enable_tuner: true             # run the tuner phase (orchestrator/dashboard default; --no-tuner still overrides)
   resume_tex_path: data/resume_projects/Udayan_Resume.tex         # used by evaluator (Pass 1)
   resume_template_path: data/resume_projects/resume_template.tex  # used by assembler (Pass 2)
   projects_bullets_path: data/resume_projects/projects_bullets.yaml  # pre-authored LaTeX bullets

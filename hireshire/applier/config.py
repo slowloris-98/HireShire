@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 
 class ApplierSettings(BaseModel):
+    enable_applier: bool = False  # dashboard/orchestrator default: run the applier phase after tuning
     dry_run: bool = True
     matches_dir: str = "data/matches"
     applied_dir: str = "data/applied"

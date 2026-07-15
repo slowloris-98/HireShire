@@ -10,6 +10,8 @@ HireShire is a four-phase automated job search pipeline:
 3. **Tuner** — two-pass resume optimizer (evaluator critique → JSON project selector → code assembler → PDF compile)
 4. **Applier** — fills out and submits job applications via Claude Code's `/apply` skill (Playwright MCP)
 
+A **web dashboard** (Phase 5, `hireshire/webapp/` + `frontend/`) sits on top: a LangGraph "talk to your data" chat, an editable config panel, run controls, and a filtered job list. See the Web Dashboard section below.
+
 Each phase is fully independent: its own entrypoint script, `hireshire/<phase>/` subpackage, `config/<phase>.yaml`, and `data/<phase-output>/` directory.
 
 ## Commands
@@ -56,6 +58,12 @@ python applier.py --dry-run
 # Lint the pre-authored resume bullet corpus
 python -m hireshire.tuner.lint
 pytest tests/test_projects_bullets.py
+
+# Phase 5: Web dashboard (FastAPI backend + React/TS SPA)
+cd frontend && npm install && npm run build && cd ..   # build the SPA once (emits frontend/dist)
+python run_web.py                                       # serve API + built SPA (config/frontend.yaml host/port)
+python run_web.py --reload                              # dev backend with auto-reload
+# Frontend dev with hot-reload (separate terminal): cd frontend && npm run dev  (proxies /api to :8000)
 ```
 
 ## Architecture
@@ -157,3 +165,14 @@ Each script's `main()` accepts optional `in_queue`, `out_queue`, and `quiet` par
 **Skip flags** — `--no-tuner` replaces the tuner with a passthrough that marks all jobs `tuner_status: "skipped"` and writes results with null resume fields. `--no-matcher` runs the scraper only and writes an empty results file. `--no-llm` keeps the matcher in the pipeline but skips its LLM scoring, so every title-passing job is shortlisted (auto-scored 100) and forwarded to the tuner.
 
 **`--apply` flag** — after each pipeline run completes, the orchestrator invokes the `/apply` Claude Code skill by running `claude -p --permission-mode auto` with the skill prompt from `.claude/commands/apply.md`. This is skipped when `--no-tuner` or `--no-matcher` are active (since tuned resumes are a prerequisite). Phase 4 can also be run manually by invoking `/apply` in Claude Code at any time.
+
+### Web Dashboard (Phase 5)
+
+A local, single-user dashboard: **FastAPI backend** ([hireshire/webapp/](hireshire/webapp/)) + **React/TypeScript SPA** ([frontend/](frontend/)), launched together by [run_web.py](run_web.py). Built additively — it imports `db.py`, the phase config loaders, and the phase entrypoint scripts; the only pipeline-code change is the `enable_tuner` / `enable_applier` config keys (below). Configured by [config/frontend.yaml](config/frontend.yaml) (chat provider/model, host/port, CORS origins). Layout: a full-height **chat** panel on the left; a **config editor** (top) and **job list** (bottom) on the right.
+
+- **Read-only data access** — [hireshire/webapp/deps.py](hireshire/webapp/deps.py) `ReadDB` opens its own `PRAGMA query_only=ON` sqlite connection so the dashboard never contends with the pipeline's writer (WAL allows concurrent readers). Endpoints: `GET /api/runs`, `GET /api/jobs` (the unified job-list query in [hireshire/webapp/jobs_query.py](hireshire/webapp/jobs_query.py) — pipeline_results, falling back to shortlisted matches, joined with applied status), `GET /api/resume/{run_id}/{job_id}` (streams the tuned PDF).
+- **Config editor** — [hireshire/webapp/routers/config_api.py](hireshire/webapp/routers/config_api.py) reads/writes `config/*.yaml` with **ruamel.yaml** (comment- and CRLF-preserving; `sequence=4, offset=2` indent to match the files). Only the whitelisted fields in [hireshire/webapp/config_spec.py](hireshire/webapp/config_spec.py) are exposed (scraper location/age; matcher threshold/provider/model/skip_llm/title keywords; funnel enabled/threshold/targets; tuner enable+paths+providers; applier enable/dry_run+identity); a `PUT` to any other key is rejected, and the patched file is re-validated against the phase's pydantic settings model before writing.
+- **Run control** — [hireshire/webapp/runner.py](hireshire/webapp/runner.py) launches each phase's entrypoint (`scraper.py` / `matcher.py` / `tuner.py` / `applier.py` / `orchestrate.py`) as a tracked `subprocess.Popen`, output redirected to `logs/<phase>.log`. Endpoints: `POST /api/runs/{phase}`, `POST /api/runs/{phase}/stop`, `GET /api/runs/status`, `GET /api/runs/{phase}/logs` (SSE tail).
+- **Chat agent** — a LangGraph ReAct agent ([hireshire/webapp/agent/](hireshire/webapp/agent/)) built from `config/frontend.yaml`'s provider/model. Read tools (`search_jobs`, `get_top_matches`, `run_stats`, `list_runs`, `explain_config`) query `ReadDB` directly; run tools (`run_phase`, `stop_phase`) are **confirmation-gated** — they return a proposal, not an action. `POST /api/chat` streams SSE events: `token`, `tool_call`, `job_results` (search results → the frontend loads them into the job-list panel), and `run_proposal` (→ a Confirm card that calls `POST /api/runs/{phase}`). Note: Anthropic Opus 4.8 / Sonnet 5 reject `temperature`, so the anthropic provider omits sampling params ([hireshire/webapp/agent/providers.py](hireshire/webapp/agent/providers.py)).
+
+**`enable_tuner` / `enable_applier` config keys** — new booleans in `config/tuner.yaml` (`TunerSettings`) and `config/applier.yaml` (`ApplierSettings`). `orchestrate.py` reads them as the defaults for skipping the tuner / running the applier; the `--no-tuner` and `--apply` CLI flags still act as explicit overrides.

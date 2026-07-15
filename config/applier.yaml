@@ -1,4 +1,5 @@
 settings:
+  enable_applier: false             # run the applier phase after each pipeline run (orchestrator/dashboard default; --apply still forces on)
   dry_run: false                    # CRITICAL: set to false to actually submit applications
   applied_dir: data/applied         # on-disk home for screenshots/ (records go to the applied table)
   db_path: data/hireshire.db        # shared SQLite datastore — reads shortlisted matches, writes the applied table

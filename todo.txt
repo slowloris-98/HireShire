@@ -1,3 +1,8 @@
+- dpo something about the scores, dont set them as 100, instead keep them null
+- keep the readme clean short and to tyhe point, add screenshots, video link, 
+- ui beautification, equal spaces between fields
+- can update the applied jobs from using the same email storage layer and checking if recieved an email like thankyou for applying.
+
 - emperical study on the scrapped jobs and the matched job in the last run. increase the thereshold and identify the sweet spot.
 
 
