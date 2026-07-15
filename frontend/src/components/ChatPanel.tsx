@@ -1,4 +1,7 @@
 import { useRef, useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import { streamPost } from "../lib/sse";
 import { api } from "../lib/api";
 import { useStore } from "../state/store";
@@ -10,6 +13,15 @@ interface Msg {
   tools: string[];
   proposal?: RunProposal;
 }
+
+// Agent links point at external job boards.
+const mdComponents: Components = {
+  a: ({ children, ...props }) => (
+    <a {...props} target="_blank" rel="noreferrer">
+      {children}
+    </a>
+  ),
+};
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -114,7 +126,15 @@ export default function ChatPanel() {
             {m.tools.map((t, k) => (
               <span key={k} className="toolchip">⚙ {t}</span>
             ))}
-            <div className="bubble">{m.content || (busy && i === messages.length - 1 ? "…" : "")}</div>
+            <div className="bubble">
+              {m.role === "assistant" && m.content ? (
+                <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                  {m.content}
+                </Markdown>
+              ) : (
+                m.content || (busy && i === messages.length - 1 ? "…" : "")
+              )}
+            </div>
             {m.proposal && (
               <div className="proposal">
                 <div className="title">

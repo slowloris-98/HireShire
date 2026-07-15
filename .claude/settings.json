@@ -77,7 +77,10 @@
       "Bash(rm -f readme-render.png)",
       "Bash(curl -s -o /dev/null --max-time 2 http://127.0.0.1:8123/)",
       "PowerShell(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'http\\\\.server 8123' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 500; Write-Output \"preview server stopped\")",
-      "Bash(venv/Scripts/python.exe -)"
+      "Bash(venv/Scripts/python.exe -)",
+      "Bash(curl -s -o /dev/null http://127.0.0.1:8000/api/runs)",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_close"
     ]
   }
 }
