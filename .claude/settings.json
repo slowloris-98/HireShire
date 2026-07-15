@@ -66,7 +66,18 @@
       "Bash(venv/Scripts/python.exe run_web.py --port 8990)",
       "Bash(curl -s -N -X POST http://127.0.0.1:8990/api/chat -H \"Content-Type: application/json\" -d '{\"message\":\"say hello in exactly two words\"}' --max-time 30)",
       "mcp__playwright__browser_click",
-      "Bash(curl -s --max-time 3 http://127.0.0.1:8990/api/health)"
+      "Bash(curl -s --max-time 3 http://127.0.0.1:8990/api/health)",
+      "Bash(git mv *)",
+      "Bash(grep -n \"^## \\\\|^---$\" docs/design.md)",
+      "Bash(xargs -n1 basename)",
+      "Bash(venv/Scripts/python.exe run_web.py --help)",
+      "Bash(venv/Scripts/python.exe orchestrate.py --help)",
+      "Bash(venv/Scripts/python.exe -c \"import markdown; print\\('markdown available'\\)\")",
+      "Bash(pip list *)",
+      "Bash(rm -f readme-render.png)",
+      "Bash(curl -s -o /dev/null --max-time 2 http://127.0.0.1:8123/)",
+      "PowerShell(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'http\\\\.server 8123' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 500; Write-Output \"preview server stopped\")",
+      "Bash(venv/Scripts/python.exe -)"
     ]
   }
 }
