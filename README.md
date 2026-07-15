@@ -9,6 +9,10 @@ Searching for a job at volume is the same four steps repeated hundreds of times:
 out whether it's actually a fit, tailor your resume to it, and retype the same details into yet another
 form. HireShire automates all four and keeps you in the loop at the points that matter.
 
+<!-- ![HireShire Dashboard Startup](docs/dashboard_new.png) -->
+![HireShire Dashboard Populated](docs/dashboard_filled.png)
+
+
 ## What it does
 
 | | | |
