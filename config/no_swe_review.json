@@ -1,0 +1,3298 @@
+{
+  "generated": "2026-07-08",
+  "source": "config/no_swe.json",
+  "method": "knowledge scan of 6090 bamboohr slugs + 801 workday companies; web-verified via BambooHR careers-list JSON and Workday token site-names to drop name-collisions",
+  "summary": {
+    "bamboohr_remove": 441,
+    "bamboohr_dropped_collisions": 12,
+    "workday_remove_companies": 55,
+    "workday_remove_tokens": 137,
+    "workday_medium_companies": 64
+  },
+  "bamboohr": {
+    "remove": [
+      {
+        "slug": "3yourmind",
+        "confidence": "HIGH",
+        "evidence": "current roles: Join our Team! Get in touch! ; Director Strategic Solutions (m/w/d)"
+      },
+      {
+        "slug": "42crunch",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "9spokes",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "aerobotics",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Director - West Coast USA; Business Development Manager - Italy"
+      },
+      {
+        "slug": "africastalking",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "aisera",
+        "confidence": "HIGH",
+        "evidence": "current roles: Consultant - Data Annotator (30 - 35 hours per week)"
+      },
+      {
+        "slug": "aivo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "aklamio",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "alephium",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "alogent",
+        "confidence": "HIGH",
+        "evidence": "current roles: Outbound Sales Development Representative; Marketing Manager; Marketing Communications Coordinator"
+      },
+      {
+        "slug": "alpega",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "anecdotes",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "anixe",
+        "confidence": "HIGH",
+        "evidence": "current roles: Agile Coach/Scrum Master ; Head of Product"
+      },
+      {
+        "slug": "anonyome",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Enterprise Account Executive; VP of Sales"
+      },
+      {
+        "slug": "anoto",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "aplazo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "archilogic",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "asigra",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "beehiiv",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Product Marketing Manager (global)"
+      },
+      {
+        "slug": "betmakers",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "binalyze",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "bioconnect",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "bitstrapped",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "blazinggriffin",
+        "confidence": "HIGH",
+        "evidence": "current roles: Freelancer Submissions (Games); Speculative Application (Games)"
+      },
+      {
+        "slug": "botpress",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "bovisync",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "bowtie",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "brainrocket",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "britecore",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "bluelabs",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "bluelayer",
+        "confidence": "HIGH",
+        "evidence": "current roles: Open Application (m/f/d)"
+      },
+      {
+        "slug": "bluemarvelai",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Interest – Help Build the Future of Industrial Data; Solutions Architect"
+      },
+      {
+        "slug": "beamdog",
+        "confidence": "HIGH",
+        "evidence": "current roles: Concept Artist"
+      },
+      {
+        "slug": "cybeats",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "carriersedge",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "castoredc",
+        "confidence": "HIGH",
+        "evidence": "current roles: Manager, QA and Release "
+      },
+      {
+        "slug": "ceresai",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "chainio",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "chainwaylabs",
+        "confidence": "HIGH",
+        "evidence": "current roles: Open Application – Shape the Future of Bitcoin with Us"
+      },
+      {
+        "slug": "chargelab",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "checkstep",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "cin7",
+        "confidence": "HIGH",
+        "evidence": "current roles: Onboarding Specialist"
+      },
+      {
+        "slug": "cincom",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "ciraappsltd",
+        "confidence": "HIGH",
+        "evidence": "current roles: Customer Support Specialist (SaaS); Sales Development Representative; Product Marketing Manager"
+      },
+      {
+        "slug": "claravine",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Product Manager; Customer Success Manager; Customer Support Specialist | Brazil, El Salvador, India, or Philippines"
+      },
+      {
+        "slug": "clevyr",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "clickfunnels",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "cloudmargin",
+        "confidence": "HIGH",
+        "evidence": "current roles: CloudMargin Talent Pool; Client Services Executive; Strategic Onboarding Manager"
+      },
+      {
+        "slug": "cloudsigma",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "cloudsmith",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "cludo",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Product Manager; Part-time BDR (Italian market)"
+      },
+      {
+        "slug": "coactive",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "cobot",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "codazen",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "codemettle",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "conexiom",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "consensus",
+        "confidence": "HIGH",
+        "evidence": "current roles: Customer Success Intern; Creative Technologist Intern"
+      },
+      {
+        "slug": "contentbloom",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Consultant; Senior Technical Consultant"
+      },
+      {
+        "slug": "contruent",
+        "confidence": "HIGH",
+        "evidence": "current roles: Sales Development Representative; Enterprise Account Executive"
+      },
+      {
+        "slug": "coschedule",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "criteriacorp",
+        "confidence": "HIGH",
+        "evidence": "current roles: Sales Development Rep (Remote in US); Sales Executive (Remote in the US); Enterprise Customer Success Manager"
+      },
+      {
+        "slug": "cronoslabs",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "cybba",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Strategist, AdTech (BR); Senior Strategist, AdTech (MX)"
+      },
+      {
+        "slug": "cybsafe",
+        "confidence": "HIGH",
+        "evidence": "current roles: Channel Partner Manager"
+      },
+      {
+        "slug": "databox",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "datameer",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "datastealth",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "datastreamer",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "dakotasoft",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "damstratechnology",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "dashq",
+        "confidence": "HIGH",
+        "evidence": "current roles: Account Executive (Mid-Market); Account Executive (Enterprise); Finance Operations Associate"
+      },
+      {
+        "slug": "deepsea",
+        "confidence": "HIGH",
+        "evidence": "current roles:  General Application"
+      },
+      {
+        "slug": "deepsee",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "delasport",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "denvrdata",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Application"
+      },
+      {
+        "slug": "docmagic",
+        "confidence": "HIGH",
+        "evidence": "current roles: Salesforce Administrator "
+      },
+      {
+        "slug": "door3",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "doxyme",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "dribbble",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "druidsoftware",
+        "confidence": "HIGH",
+        "evidence": "current roles: Vice President of Healthcare Vertical; EMEA Sales Director; VP- Mining Vertical Europe/N.America"
+      },
+      {
+        "slug": "duplo",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Business Development Associate "
+      },
+      {
+        "slug": "eventussystems",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "effectivesoft",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "eksobionics",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "emberlab",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Gameplay Animator; Lead VFX Artist"
+      },
+      {
+        "slug": "endace",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "enersoft",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "enginedigital",
+        "confidence": "HIGH",
+        "evidence": "current roles: Contractor; General Applicant; Experience Designer (Senior)"
+      },
+      {
+        "slug": "environicsanalytics",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Product Manager"
+      },
+      {
+        "slug": "eschergroup",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "everstake",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Business Development Manager US"
+      },
+      {
+        "slug": "evisions",
+        "confidence": "HIGH",
+        "evidence": "current roles: Future Opportunities"
+      },
+      {
+        "slug": "eventsair",
+        "confidence": "HIGH",
+        "evidence": "current roles: Junior Account Manager"
+      },
+      {
+        "slug": "eventfinda",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "extensiv",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "eyenuk",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "fanbase",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "faye",
+        "confidence": "HIGH",
+        "evidence": "current roles: Client Advisor; Evergreen Job Post; Consultant (Intercom)"
+      },
+      {
+        "slug": "fellowapp",
+        "confidence": "HIGH",
+        "evidence": "current roles: Implementation Specialist ; Customer Success Manager; Account Executive (Velocity Team)"
+      },
+      {
+        "slug": "fenerum",
+        "confidence": "HIGH",
+        "evidence": "current roles: Content Marketing Praktikant"
+      },
+      {
+        "slug": "fieldbee",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "fileinvite",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "filamentgames",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "fincra",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "fintelconnect",
+        "confidence": "HIGH",
+        "evidence": "current roles: Account Coordinator; Account Manager; Senior Client Services Manager"
+      },
+      {
+        "slug": "fivejars",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "fixposition",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "flexionmobile",
+        "confidence": "HIGH",
+        "evidence": "current roles: Account Manager (Influencer-Marketing-Agency)"
+      },
+      {
+        "slug": "flightschedulepro",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "flowforma",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "flxpoint",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "forcemanager",
+        "confidence": "HIGH",
+        "evidence": "current roles: Leave us your CV for future openings!"
+      },
+      {
+        "slug": "forecasthq",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Account Executive (meQ)"
+      },
+      {
+        "slug": "fotokite",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "fresnelsoftware",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "fortris",
+        "confidence": "HIGH",
+        "evidence": "current roles: Open Application"
+      },
+      {
+        "slug": "gangverk",
+        "confidence": "HIGH",
+        "evidence": "current roles: General application"
+      },
+      {
+        "slug": "ganintegrity",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Counsel; Senior Product Manager, Platform"
+      },
+      {
+        "slug": "gasketgames",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "gamelounge",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Operations Manager"
+      },
+      {
+        "slug": "gearsforbreakfast",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "ghgsat",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "givecloud",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "globalkinetic",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "gradientmsp",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "graphiant",
+        "confidence": "HIGH",
+        "evidence": "current roles: Executive Assistant  (Remote, Atlanta); Project Manager, Network Migration - United Kingdom ; Marketing Associate"
+      },
+      {
+        "slug": "gravyty",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Accountant; Senior Manager, Customer Marketing & Advocacy"
+      },
+      {
+        "slug": "gridedge",
+        "confidence": "HIGH",
+        "evidence": "current roles: A superstar role with GridEdge"
+      },
+      {
+        "slug": "gridx",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Technical Project Manager - Remote US"
+      },
+      {
+        "slug": "growpath",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "grubtech",
+        "confidence": "HIGH",
+        "evidence": "current roles: Sales Manager; Senior Sales Manager (KSA); Commercial Team Lead (UK)"
+      },
+      {
+        "slug": "grvt",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "gtreasury",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "guuru",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Account Executive"
+      },
+      {
+        "slug": "habitatenergy",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "hapana",
+        "confidence": "HIGH",
+        "evidence": "current roles: Expression of Interest"
+      },
+      {
+        "slug": "healthpilot",
+        "confidence": "HIGH",
+        "evidence": "current roles: Content Marketing Manager"
+      },
+      {
+        "slug": "highvoltagesoftware",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "holisticai",
+        "confidence": "HIGH",
+        "evidence": "current roles: Marketing Manager"
+      },
+      {
+        "slug": "home365",
+        "confidence": "HIGH",
+        "evidence": "current roles: Field Agent - Contractor ( Spring Valley, Anthem AZ); Field Agent - Contractor (Scranton, PA); Field Agent - Contractor (Pittsburgh, PA)"
+      },
+      {
+        "slug": "houseofcode",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "hypernative",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Security Researcher"
+      },
+      {
+        "slug": "identityfusion",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "idplans1",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Posting; Field Data Specialist & Quality Assurance - Salt Lake City, Utah; Field Data Specialist - Travel position"
+      },
+      {
+        "slug": "igg",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Interest Application; UIUX Designer (Mobile Game); Game Monetary/Economy Designer (Mobile Game)"
+      },
+      {
+        "slug": "igloocompany",
+        "confidence": "HIGH",
+        "evidence": "current roles: Multifamily Rental Business Development Manager; Marketing Intern, Brand & Content; Technical Support"
+      },
+      {
+        "slug": "igrafx",
+        "confidence": "HIGH",
+        "evidence": "current roles: Alliance Director, North America; Alliance Director, EMEA; Business Development Leader, DACH"
+      },
+      {
+        "slug": "inecta",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Solutions Consultant / Solutions Architect, Food ERP ; Operations Coordinator"
+      },
+      {
+        "slug": "inetco",
+        "confidence": "HIGH",
+        "evidence": "current roles: General; Accountant"
+      },
+      {
+        "slug": "infragistics",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "ingenious",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "innersloth",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "insighttimer",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "inspera",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "instabug",
+        "confidence": "HIGH",
+        "evidence": "current roles: Enterprise Account Executive"
+      },
+      {
+        "slug": "intelecy",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "interaxon",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "interneer",
+        "confidence": "HIGH",
+        "evidence": "current roles: Account Executive (Anywhere in the U.S.)"
+      },
+      {
+        "slug": "intuji",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "inxile",
+        "confidence": "HIGH",
+        "evidence": "current roles: Be Careful of Hiring Scams"
+      },
+      {
+        "slug": "ipinfo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "iotechsys",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "ipaper",
+        "confidence": "HIGH",
+        "evidence": "current roles: Unsolicited Applications; Customer Support Specialist (SaaS)"
+      },
+      {
+        "slug": "irishtitan",
+        "confidence": "HIGH",
+        "evidence": "current roles: No Positions Open"
+      },
+      {
+        "slug": "ivycomputer",
+        "confidence": "HIGH",
+        "evidence": "current roles: Payment Processing Facilitator"
+      },
+      {
+        "slug": "jackrabbit",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "jobbatical",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "jobsync",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "kahua",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "katanox",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "keysoftwaresystems",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "keysys",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "kigen",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Solutions Expert"
+      },
+      {
+        "slug": "kimoby",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "kiosoft",
+        "confidence": "HIGH",
+        "evidence": "current roles: Markerting Coordinator "
+      },
+      {
+        "slug": "klugeinteractive",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "knack",
+        "confidence": "HIGH",
+        "evidence": "current roles: Spontaneous Application"
+      },
+      {
+        "slug": "knak",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "knockinc",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Applicants"
+      },
+      {
+        "slug": "kolmeo",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Product Manager"
+      },
+      {
+        "slug": "kudo",
+        "confidence": "HIGH",
+        "evidence": "current roles: Meeting Services Specialist (APAC)"
+      },
+      {
+        "slug": "kuunda",
+        "confidence": "HIGH",
+        "evidence": "current roles: Growth and Operations Manager ; Head of Business Development MENA; New Business & Commercial Manager"
+      },
+      {
+        "slug": "landfx",
+        "confidence": "HIGH",
+        "evidence": "current roles: REVIT CONTENT CREATOR"
+      },
+      {
+        "slug": "landtech",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lastwall",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "later",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lavanda",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lawpath",
+        "confidence": "HIGH",
+        "evidence": "current roles: Register Interest - Talent Pool; Inside Sales Represenative; Accountant | Business Services & Advisory "
+      },
+      {
+        "slug": "learnerbly",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lemonedge",
+        "confidence": "HIGH",
+        "evidence": "current roles: Implementation Consultant –  Fund Accounting"
+      },
+      {
+        "slug": "libertysoftware",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "linkfire",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "logpoint",
+        "confidence": "HIGH",
+        "evidence": "current roles: Unsolicited Applications- Nepal; Security Researcher; Senior UX Designer "
+      },
+      {
+        "slug": "loka",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lorisystems",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lottiefiles",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lucidlink",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lucinity",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lumeto",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Director"
+      },
+      {
+        "slug": "lupl",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "lvt",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "machool",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "martello",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "materialexchange",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "materialsdesign",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "mealticket",
+        "confidence": "HIGH",
+        "evidence": "current roles: Implementation Specialist"
+      },
+      {
+        "slug": "measurabl",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "mercaux",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "mescius",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "metacompliance",
+        "confidence": "HIGH",
+        "evidence": "current roles: Sales Development Representative; Sales Development Representative ; Legal Intern - Summer 2026 "
+      },
+      {
+        "slug": "metarouter",
+        "confidence": "HIGH",
+        "evidence": "current roles: Director of Customer Success"
+      },
+      {
+        "slug": "metrikus",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "mi9retail",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "michiganlabs",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "milrem",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "milyli",
+        "confidence": "HIGH",
+        "evidence": "current roles: Open Application"
+      },
+      {
+        "slug": "mindbridge",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "mindgrub",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "montrium",
+        "confidence": "HIGH",
+        "evidence": "current roles: Submit your CV"
+      },
+      {
+        "slug": "moises",
+        "confidence": "HIGH",
+        "evidence": "current roles: Express Your Interest / Join Our Talent Community; Creator Content Lead (Brazil)"
+      },
+      {
+        "slug": "motorway",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "mvix",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Representative ; Client Coordinator; Sales Support Associate"
+      },
+      {
+        "slug": "mx51",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "mybambu",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "nanoleaf",
+        "confidence": "HIGH",
+        "evidence": "current roles: Director of Brand; Graphic Design Intern / Contract Designer"
+      },
+      {
+        "slug": "nearmap",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "nedap",
+        "confidence": "HIGH",
+        "evidence": "current roles: Digital Marketing Specialist"
+      },
+      {
+        "slug": "neofonie",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Project Manager (Mobile Apps)  (all genders); UX/UI Designer - Junior Product Designer"
+      },
+      {
+        "slug": "nestcoin",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "netbeez",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "netcraft",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "newswhip",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "ninjatrader",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "nofraud",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "normative",
+        "confidence": "HIGH",
+        "evidence": "current roles: Normative Contractor Intake; Senior UX Designer"
+      },
+      {
+        "slug": "novopayment",
+        "confidence": "HIGH",
+        "evidence": "current roles: Ejecutivo Comercial; Analista de Cumplimiento - Temporal"
+      },
+      {
+        "slug": "nowports",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "nureva",
+        "confidence": "HIGH",
+        "evidence": "current roles: Regulatory & Environmental Compliance Specialist"
+      },
+      {
+        "slug": "nymbus",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "nymcard",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "nymi",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Submission"
+      },
+      {
+        "slug": "observepoint",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "onebeyond",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "oneviewhealthcare",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "onpay",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "onsharp",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Representative (B2B); Business Development Representative Intern"
+      },
+      {
+        "slug": "opencosmos",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "opendorse",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "openjawtech",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "orases",
+        "confidence": "HIGH",
+        "evidence": "current roles: Office Coordinator"
+      },
+      {
+        "slug": "overstory",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "ozoneproject",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Manager"
+      },
+      {
+        "slug": "patchstack",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "payall",
+        "confidence": "HIGH",
+        "evidence": "current roles: Project / Implementation Manager & Account Development Executive; Business Development Executive / Sales Executive; Privacy & Data Governance Specialist"
+      },
+      {
+        "slug": "payara",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "payrange",
+        "confidence": "HIGH",
+        "evidence": "current roles: Help Desk; Staff Accountant; Senior Technical Support Specialist T2"
+      },
+      {
+        "slug": "pegasusimagery",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "pelcro",
+        "confidence": "HIGH",
+        "evidence": "current roles: Quality Assurance Lead"
+      },
+      {
+        "slug": "pexapark",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "pickupp",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "pinger",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "pitchly",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "pixeltoysltd",
+        "confidence": "HIGH",
+        "evidence": "current roles: Speculative Application; Cinematics Camera Animator (Fixed Term Contract); Server Programmer"
+      },
+      {
+        "slug": "pliant",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "pontosense",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Representative; Business Development Representative"
+      },
+      {
+        "slug": "praekelt",
+        "confidence": "HIGH",
+        "evidence": "current roles: Growth Partner"
+      },
+      {
+        "slug": "privateai",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Enterprise Account Executive"
+      },
+      {
+        "slug": "procedureflow",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "prodigyfinance",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "promethistai",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "prospection",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "pushsecurity",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "qmatic",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "quandri",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "quantfury",
+        "confidence": "HIGH",
+        "evidence": "current roles: Trading Platform Product Specialist; Especialista de Producto en Plataformas de Trading (Toronto); Junior Compliance Officer"
+      },
+      {
+        "slug": "quantumbrilliance",
+        "confidence": "HIGH",
+        "evidence": "current roles: Expressions of Interest - Australia (Canberra or Melbourne Labs); Expressions of Interest - Germany (Stuttgart or Freiburg Labs)"
+      },
+      {
+        "slug": "quotewerks",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "radiantlogic",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "radiusnetworks",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "ramsoftinc",
+        "confidence": "HIGH",
+        "evidence": "current roles: Regional Sales Manager – Clinical Healthcare "
+      },
+      {
+        "slug": "rapidratings",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Enterprise Account Executive - EMEA; Senior Enterprise Account Executive - DIB and Department of War (DoW); Client Success Manager - NYC"
+      },
+      {
+        "slug": "rauva",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "readymode",
+        "confidence": "HIGH",
+        "evidence": "current roles: Head of Legal & Compliance; Customer Success Manager"
+      },
+      {
+        "slug": "rebrandly",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "rebuy",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "recordpoint",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "regroup",
+        "confidence": "HIGH",
+        "evidence": "current roles: Sales Development Representative"
+      },
+      {
+        "slug": "relaxgaming",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "relayr",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "relicentertainment",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Application - Love Our Games? Apply Here!; Technical Designer"
+      },
+      {
+        "slug": "reptrak",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "rewind",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "rewire",
+        "confidence": "HIGH",
+        "evidence": "current roles: Audience and Marketing Specialist"
+      },
+      {
+        "slug": "risevest",
+        "confidence": "HIGH",
+        "evidence": "current roles: Fund Manager; Field Sales Associate"
+      },
+      {
+        "slug": "risilience",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "rockportnetworks",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Application - Future Opportunities"
+      },
+      {
+        "slug": "rollee",
+        "confidence": "HIGH",
+        "evidence": "current roles: Intern Product & Brand Designer"
+      },
+      {
+        "slug": "rooof",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "rumbleup",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "rystadenergy",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "safetychain",
+        "confidence": "HIGH",
+        "evidence": "current roles: Strategic Customer Success Manager - Saas - QMS/MES; Enterprise Account Executive; Business Development Representative - Inbound"
+      },
+      {
+        "slug": "sandboxvr",
+        "confidence": "HIGH",
+        "evidence": "current roles: Sales & Events coordinator "
+      },
+      {
+        "slug": "savvymoney",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "sawtoothsoftware",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "scottytechnologies",
+        "confidence": "HIGH",
+        "evidence": "current roles: Conversation Designer (Portugal based)"
+      },
+      {
+        "slug": "searchstax",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "seccl",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "securitize",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "securitymetrics",
+        "confidence": "HIGH",
+        "evidence": "current roles: Customer Support - French; Account Manager (US & UK HRS); Account Development Representative (US & UK HRS)"
+      },
+      {
+        "slug": "sensorup",
+        "confidence": "HIGH",
+        "evidence": "current roles: Want to stay connected for future roles?; Sales Executive, Oil & Gas"
+      },
+      {
+        "slug": "senstar",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Interest; Product Manager - Video/Sensors; Import/Export Transportation Coordinator "
+      },
+      {
+        "slug": "servermania",
+        "confidence": "HIGH",
+        "evidence": "current roles: Head of Marketing"
+      },
+      {
+        "slug": "shiftleft",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "shopback",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "shopgate",
+        "confidence": "HIGH",
+        "evidence": "current roles: Initiativbewerbung"
+      },
+      {
+        "slug": "shorthand",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "showbie",
+        "confidence": "HIGH",
+        "evidence": "current roles: Customer Experience Specialist; Account Manager (Temp Contract - Maternity Leave Cover); Account Management Team Lead"
+      },
+      {
+        "slug": "sidefx",
+        "confidence": "HIGH",
+        "evidence": "current roles: *Join Our SideFX Talent Community* "
+      },
+      {
+        "slug": "silenteight",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "silverstripe",
+        "confidence": "HIGH",
+        "evidence": "current roles: Future Opportunities ; Client Lead "
+      },
+      {
+        "slug": "simetrik",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Representative Hispanic LATAM; Account Executive - Mid Market BR; Enterprise Account Executive - SOLA"
+      },
+      {
+        "slug": "siro",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "skale",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Manager; Strategic Digital Account Manager; Organic Growth Strategist"
+      },
+      {
+        "slug": "skillstruck",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "skynamo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "skywindgroup",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "smartyads",
+        "confidence": "HIGH",
+        "evidence": "current roles:  Head of Programmatic; Head of SSP; Account Manager (AdExchange)"
+      },
+      {
+        "slug": "smoothcommerce",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "softiron",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "solidatus",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "soundstripe",
+        "confidence": "HIGH",
+        "evidence": "current roles: Head of Sales (Remote)"
+      },
+      {
+        "slug": "spamhaus",
+        "confidence": "HIGH",
+        "evidence": "current roles: Want to be part of the team?"
+      },
+      {
+        "slug": "spiralscout",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "splitit",
+        "confidence": "HIGH",
+        "evidence": "current roles: New Business Sales Executive; Credit Officer & Head of Risk; Partner Marketing Manager – Samsung Growth"
+      },
+      {
+        "slug": "splyt",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "sportlogiq",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "spriggy",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "stamped",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "starrez",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "statflo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "stellaralgo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "storeforce",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "storj",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "stormagic",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "stormindgames",
+        "confidence": "HIGH",
+        "evidence": "current roles: Spontaneous Applications "
+      },
+      {
+        "slug": "streamlinestudios",
+        "confidence": "HIGH",
+        "evidence": "current roles: 3D Character Artist; VFX Artist; Technical Artist"
+      },
+      {
+        "slug": "studytube",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "subsplash",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "supplychainwizard",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "surgicalscience",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "switcherstudio",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "switchfly",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "swyfft",
+        "confidence": "HIGH",
+        "evidence": "current roles: Dallas, TX Territory Sales Manager (P&C Insurance) ; NJ/NY Territory Sales Manager (P&C Insurance); VP, Marketing "
+      },
+      {
+        "slug": "synder",
+        "confidence": "HIGH",
+        "evidence": "current roles: Head of Product (B2B SaaS | EU); Senior SEO / LLM Optimization Specialist"
+      },
+      {
+        "slug": "system73",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "systemera",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "talkatoo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "talonone",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "tantalussystems",
+        "confidence": "HIGH",
+        "evidence": "current roles: Deployment Specialist (Propagation Modeling); Technical Support Specialist; Product Manager, Grid Automation"
+      },
+      {
+        "slug": "taskize",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "teldio",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Support Specialist"
+      },
+      {
+        "slug": "tendermint",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "tenjin",
+        "confidence": "HIGH",
+        "evidence": "current roles: Customer Success Manager; Customer Success Manager"
+      },
+      {
+        "slug": "teqblaze",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Manager (LATAM); Delivery Coordinator"
+      },
+      {
+        "slug": "teravisiongames",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "thentia",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "thinkanalytics",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "tiled",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "timezest",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "tiugo",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Marketing Operations Manager"
+      },
+      {
+        "slug": "topia",
+        "confidence": "HIGH",
+        "evidence": "current roles: Enterprise Account Executive"
+      },
+      {
+        "slug": "togethergaming",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "tornbanner",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Director; Cinematic Animator; Character Rigging & Tools Artist "
+      },
+      {
+        "slug": "trackerproducts",
+        "confidence": "HIGH",
+        "evidence": "current roles: Director of Sales; Technical Implementation Specialist"
+      },
+      {
+        "slug": "trackfive",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "transoftsolutions",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "travelshift",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "trevipay",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "truepointsolutions",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Proposal Manager"
+      },
+      {
+        "slug": "truevo",
+        "confidence": "HIGH",
+        "evidence": "current roles: Head of Risk; Merchant Review Team Lead"
+      },
+      {
+        "slug": "trustwallet",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "tttstudios",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "turbineai",
+        "confidence": "HIGH",
+        "evidence": "current roles: Chief of Staff; Head of Finance ; Head of People"
+      },
+      {
+        "slug": "twtg",
+        "confidence": "HIGH",
+        "evidence": "current roles: Open Application"
+      },
+      {
+        "slug": "txonenetworks",
+        "confidence": "HIGH",
+        "evidence": "current roles: US SDR"
+      },
+      {
+        "slug": "uledger",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "unacast",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Application; Staff Accountant"
+      },
+      {
+        "slug": "unasoftware",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "unbelievablemachine",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "uppai",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "utorg",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "validic",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "valocityglobal",
+        "confidence": "HIGH",
+        "evidence": "current roles: Business Development Manager; Product Manager; Customer Success & Growth Coordinator"
+      },
+      {
+        "slug": "versasec",
+        "confidence": "HIGH",
+        "evidence": "current roles: Unsolicited Application"
+      },
+      {
+        "slug": "versaterm",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "verticalscope",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "vertigis",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "vettx",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "veve",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "viewsonic",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "virtualpeaker",
+        "confidence": "HIGH",
+        "evidence": "current roles: Client Success Manager; Business Development Representative"
+      },
+      {
+        "slug": "vistavu",
+        "confidence": "HIGH",
+        "evidence": "current roles: S/4 HANA B1 Consultant – Migration Specialist; S/4 Public Senior Consultant"
+      },
+      {
+        "slug": "vitech",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "vividmachines",
+        "confidence": "HIGH",
+        "evidence": "current roles: AgTech Field Technician - Tri-Cities; AgTech Field Technician (May-August) - Batavia"
+      },
+      {
+        "slug": "vocareum",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "vpo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "vulcanforms",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "wallapop",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "watchtowr",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "wavefrontsoftware",
+        "confidence": "HIGH",
+        "evidence": "current roles: Technical Account Manager "
+      },
+      {
+        "slug": "webdevstudios",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "wecommerce",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "welbi",
+        "confidence": "HIGH",
+        "evidence": "current roles: Customer Support & Implementation Specialist"
+      },
+      {
+        "slug": "welltory",
+        "confidence": "HIGH",
+        "evidence": "current roles: Open Application; Medical Research Consultant"
+      },
+      {
+        "slug": "wisedocs",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "wisesystems",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Applications"
+      },
+      {
+        "slug": "wishpond",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "wisor",
+        "confidence": "HIGH",
+        "evidence": "current roles: Senior Account Executive from Freight industry - US (East Coast); Account Executive, Germany; Account Executive with experience from the freight forwarding industry, Europe"
+      },
+      {
+        "slug": "wolcenstudio",
+        "confidence": "HIGH",
+        "evidence": "current roles: Environment Artist "
+      },
+      {
+        "slug": "workforcesoftware",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "workfusion",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "worldsensing",
+        "confidence": "HIGH",
+        "evidence": "current roles: Internship- Open/Spontaneous Application; Open/Spontaneous Application; Transport Manager"
+      },
+      {
+        "slug": "worthwhile",
+        "confidence": "HIGH",
+        "evidence": "current roles: General Worthwhile Application"
+      },
+      {
+        "slug": "wynshop",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "xailientinc",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "xapo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "xata",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "xmartlabs",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "xolo",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "xseedgames",
+        "confidence": "HIGH",
+        "evidence": "current roles: Director of Marketing"
+      },
+      {
+        "slug": "xtm",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "xypro",
+        "confidence": "HIGH",
+        "evidence": "current roles: Internship"
+      },
+      {
+        "slug": "yapstone",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "ycbm",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "yoto",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "yoppworks",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "zaelot",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "zaizi",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "zencity",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      },
+      {
+        "slug": "zeni",
+        "confidence": "HIGH",
+        "evidence": "current roles: Sr / Finance Associate (Pune/Mohali) RTR; Business Development Representative"
+      },
+      {
+        "slug": "ziosk",
+        "confidence": "HIGH",
+        "evidence": "distinctive software/tech brand; live board, no current openings to cross-check"
+      }
+    ],
+    "dropped_collisions": [
+      {
+        "slug": "closedloop",
+        "reason": "digital advertising agency (not ClosedLoop.ai healthcare AI)"
+      },
+      {
+        "slug": "enable",
+        "reason": "clinical advisory & housing services org (not Enable rebate SaaS)"
+      },
+      {
+        "slug": "fauna",
+        "reason": "animal shelter (not Fauna database co)"
+      },
+      {
+        "slug": "medialab",
+        "reason": "print/signage company (not MediaLab Inc app holding co)"
+      },
+      {
+        "slug": "omnigroup",
+        "reason": "Ghana FMCG/trading (not The Omni Group Mac software)"
+      },
+      {
+        "slug": "panterra",
+        "reason": "opinion-research firm (not PanTerra Networks UCaaS)"
+      },
+      {
+        "slug": "pickit",
+        "reason": "LatAm logistics/cross-dock (not Pickit DAM SaaS)"
+      },
+      {
+        "slug": "resman",
+        "reason": "Norwegian chemical/lab firm (not ResMan property software)"
+      },
+      {
+        "slug": "skypoint",
+        "reason": "disability/behavioral services provider (not SkyPoint data cloud)"
+      },
+      {
+        "slug": "turtlerock",
+        "reason": "preschool (not Turtle Rock Studios games)"
+      },
+      {
+        "slug": "visoai",
+        "reason": "industrial/HSE roles, not viso.ai computer-vision platform"
+      },
+      {
+        "slug": "wecp",
+        "reason": "emergency physician group (not WeCP assessment tech)"
+      }
+    ]
+  },
+  "workday": {
+    "remove": [
+      {
+        "company": "adobe",
+        "tokens": [
+          "adobe|wd5|external_university"
+        ],
+        "note": "Adobe — software"
+      },
+      {
+        "company": "acxiomllc",
+        "tokens": [
+          "acxiomllc|wd5|acxiom_apac_agency",
+          "acxiomllc|wd5|acxiomuk"
+        ],
+        "note": "Acxiom — data/marketing tech"
+      },
+      {
+        "company": "alphawave",
+        "tokens": [
+          "alphawave|wd10|alphawave_external"
+        ],
+        "note": "Alphawave Semi — chip IP"
+      },
+      {
+        "company": "arctera",
+        "tokens": [
+          "arctera|wd501|arctera"
+        ],
+        "note": "Arctera — data management software"
+      },
+      {
+        "company": "asurion",
+        "tokens": [
+          "asurion|wd5|atk_ext_japan"
+        ],
+        "note": "Asurion — device/tech care"
+      },
+      {
+        "company": "cadence",
+        "tokens": [
+          "cadence|wd1|addl_jobs"
+        ],
+        "note": "Cadence — EDA software"
+      },
+      {
+        "company": "clio",
+        "tokens": [
+          "clio|wd3|university_boards"
+        ],
+        "note": "Clio — legal software"
+      },
+      {
+        "company": "commvault",
+        "tokens": [
+          "commvault|wd1|commvault"
+        ],
+        "note": "Commvault — data protection software"
+      },
+      {
+        "company": "csgi",
+        "tokens": [
+          "csgi|wd5|csgcareers"
+        ],
+        "note": "CSG — billing software"
+      },
+      {
+        "company": "dell",
+        "tokens": [
+          "dell|wd1|external",
+          "dell|wd1|externalnonpublic"
+        ],
+        "note": "Dell Technologies — software/hardware"
+      },
+      {
+        "company": "deliveryhero",
+        "tokens": [
+          "deliveryhero|wd3|hungerstation"
+        ],
+        "note": "Delivery Hero — food-delivery tech"
+      },
+      {
+        "company": "dowjones",
+        "tokens": [
+          "dowjones|wd1|news_fund_careers"
+        ],
+        "note": "Dow Jones — media/data tech"
+      },
+      {
+        "company": "duckcreek",
+        "tokens": [
+          "duckcreek|wd1|globalinternprogram"
+        ],
+        "note": "Duck Creek — insurance software"
+      },
+      {
+        "company": "dxctechnology",
+        "tokens": [
+          "dxctechnology|wd1|asjobs"
+        ],
+        "note": "DXC Technology — IT services"
+      },
+      {
+        "company": "echostar",
+        "tokens": [
+          "echostar|wd501|echostar"
+        ],
+        "note": "EchoStar/Dish — satellite tech"
+      },
+      {
+        "company": "etsy",
+        "tokens": [
+          "etsy|wd5|reverb_careers"
+        ],
+        "note": "Etsy/Reverb — ecommerce software"
+      },
+      {
+        "company": "grab",
+        "tokens": [
+          "grab|wd3|careers"
+        ],
+        "note": "Grab — superapp"
+      },
+      {
+        "company": "groupon",
+        "tokens": [
+          "groupon|wd5|jobs"
+        ],
+        "note": "Groupon — ecommerce software"
+      },
+      {
+        "company": "harriscomputer",
+        "tokens": [
+          "harriscomputer|wd3|affinity",
+          "harriscomputer|wd3|amazingcharts",
+          "harriscomputer|wd3|aus",
+          "harriscomputer|wd3|cityview",
+          "harriscomputer|wd3|cogsdale",
+          "harriscomputer|wd3|escholar",
+          "harriscomputer|wd3|harrisgovern",
+          "harriscomputer|wd3|hhc_conn",
+          "harriscomputer|wd3|hopem",
+          "harriscomputer|wd3|imdsoft",
+          "harriscomputer|wd3|picis",
+          "harriscomputer|wd3|silverblaze",
+          "harriscomputer|wd3|smartworks"
+        ],
+        "note": "Harris Computer — 13 software subsidiaries"
+      },
+      {
+        "company": "illumina",
+        "tokens": [
+          "illumina|wd1|illumina-universityrecruiting"
+        ],
+        "note": "Illumina — genomics software/bioinformatics"
+      },
+      {
+        "company": "infinera",
+        "tokens": [
+          "infinera|wd1|infinera_careers"
+        ],
+        "note": "Infinera — optical networking"
+      },
+      {
+        "company": "interactions",
+        "tokens": [
+          "interactions|wd1|interactions"
+        ],
+        "note": "Interactions — conversational AI"
+      },
+      {
+        "company": "jda",
+        "tokens": [
+          "jda|wd5|university"
+        ],
+        "note": "JDA/Blue Yonder — supply-chain software"
+      },
+      {
+        "company": "joinroot",
+        "tokens": [
+          "joinroot|wd1|joinroot"
+        ],
+        "note": "Root Insurance — insurtech"
+      },
+      {
+        "company": "kapsch",
+        "tokens": [
+          "kapsch|wd3|onestepahead-argentina",
+          "kapsch|wd3|onestepahead-france",
+          "kapsch|wd3|onestepahead-spain",
+          "kapsch|wd3|onestepahead_austria",
+          "kapsch|wd3|onestepahead_austria_embedded",
+          "kapsch|wd3|onestepahead_brazil",
+          "kapsch|wd3|onestepahead_bulgaria",
+          "kapsch|wd3|onestepahead_chile",
+          "kapsch|wd3|onestepahead_kapsch",
+          "kapsch|wd3|onestepahead_mexico",
+          "kapsch|wd3|onestepahead_nam",
+          "kapsch|wd3|onestepahead_netherlands",
+          "kapsch|wd3|onestepahead_poland",
+          "kapsch|wd3|onestepahead_sweden",
+          "kapsch|wd3|onestepahead_uae",
+          "kapsch|wd3|onestepahead_uk"
+        ],
+        "note": "Kapsch TrafficCom — ITS software"
+      },
+      {
+        "company": "klook",
+        "tokens": [
+          "klook|wd3|klookcareers"
+        ],
+        "note": "Klook — travel tech"
+      },
+      {
+        "company": "lexmark",
+        "tokens": [
+          "lexmark|wd1|lexmark"
+        ],
+        "note": "Lexmark — printing software/hardware"
+      },
+      {
+        "company": "lnw",
+        "tokens": [
+          "lnw|wd5|grovergamingexternalcareersite"
+        ],
+        "note": "Light & Wonder/Grover Gaming — gaming software"
+      },
+      {
+        "company": "lseg",
+        "tokens": [
+          "lseg|wd3|graduate_careers",
+          "lseg|wd3|microsoft_partnership"
+        ],
+        "note": "LSEG/Refinitiv — financial data tech"
+      },
+      {
+        "company": "mantech",
+        "tokens": [
+          "mantech|wd1|external"
+        ],
+        "note": "ManTech — defense IT"
+      },
+      {
+        "company": "maxar",
+        "tokens": [
+          "maxar|wd1|maxar-internship"
+        ],
+        "note": "Maxar — geospatial software"
+      },
+      {
+        "company": "mcafee",
+        "tokens": [
+          "mcafee|wd1|external"
+        ],
+        "note": "McAfee — security software"
+      },
+      {
+        "company": "moonpay",
+        "tokens": [
+          "moonpay|wd1|gti"
+        ],
+        "note": "MoonPay — crypto payments"
+      },
+      {
+        "company": "morningstar",
+        "tokens": [
+          "morningstar|wd5|sustainalytics"
+        ],
+        "note": "Morningstar/Sustainalytics — fintech data"
+      },
+      {
+        "company": "ncr",
+        "tokens": [
+          "ncr|wd1|ext_digitalfirst",
+          "ncr|wd1|ext_intern"
+        ],
+        "note": "NCR — payments/software"
+      },
+      {
+        "company": "nccgroup",
+        "tokens": [
+          "nccgroup|wd3|ncc_group"
+        ],
+        "note": "NCC Group — cybersecurity"
+      },
+      {
+        "company": "northerndata",
+        "tokens": [
+          "northerndata|wd3|northerndatacareers",
+          "northerndata|wd3|notherndatacareers_peakmining"
+        ],
+        "note": "Northern Data — HPC/AI cloud"
+      },
+      {
+        "company": "onedoor",
+        "tokens": [
+          "onedoor|wd108|onedoorcareers"
+        ],
+        "note": "One Door — retail merchandising software"
+      },
+      {
+        "company": "ordnancesurvey",
+        "tokens": [
+          "ordnancesurvey|wd3|os_early_careers"
+        ],
+        "note": "Ordnance Survey — geospatial software"
+      },
+      {
+        "company": "osfglobal",
+        "tokens": [
+          "osfglobal|wd5|osf"
+        ],
+        "note": "OSF Digital — digital commerce"
+      },
+      {
+        "company": "peak6group",
+        "tokens": [
+          "peak6group|wd1|ppcareers",
+          "peak6group|wd1|tfig",
+          "peak6group|wd1|zogo"
+        ],
+        "note": "PEAK6 — fintech (Zogo)"
+      },
+      {
+        "company": "phreesia",
+        "tokens": [
+          "phreesia|wd1|phreesia",
+          "phreesia|wd1|phreesiaindia"
+        ],
+        "note": "Phreesia — healthcare SaaS"
+      },
+      {
+        "company": "quadient",
+        "tokens": [
+          "quadient|wd3|beanworkscareers",
+          "quadient|wd3|external_career_site"
+        ],
+        "note": "Quadient/Beanworks — software"
+      },
+      {
+        "company": "rakuten",
+        "tokens": [
+          "rakuten|wd1|cartera",
+          "rakuten|wd1|collective_voice_a_rakuten_company",
+          "rakuten|wd1|konmari",
+          "rakuten|wd1|rakutenfrance",
+          "rakuten|wd1|rakuteninsurancegroup",
+          "rakuten|wd1|rakutenshopstyle",
+          "rakuten|wd1|rakutensymphony",
+          "rakuten|wd1|rakutentotalsolutions"
+        ],
+        "note": "Rakuten/Symphony — tech"
+      },
+      {
+        "company": "relx",
+        "tokens": [
+          "relx|wd3|knowable",
+          "relx|wd3|law360"
+        ],
+        "note": "RELX/LexisNexis — data analytics software"
+      },
+      {
+        "company": "silabs",
+        "tokens": [
+          "silabs|wd1|internships"
+        ],
+        "note": "Silicon Labs — semiconductors/firmware"
+      },
+      {
+        "company": "sprinklr",
+        "tokens": [
+          "sprinklr|wd1|intern_newgrad"
+        ],
+        "note": "Sprinklr — CXM SaaS"
+      },
+      {
+        "company": "stem",
+        "tokens": [
+          "stem|wd12|steminc"
+        ],
+        "note": "Stem Inc — clean-energy AI software"
+      },
+      {
+        "company": "stibosystems",
+        "tokens": [
+          "stibosystems|wd3|careers-at-stibo-systems"
+        ],
+        "note": "Stibo Systems — MDM software"
+      },
+      {
+        "company": "tencent",
+        "tokens": [
+          "tencent|wd1|timi_careers",
+          "tencent|wd1|timi_montreal_careers"
+        ],
+        "note": "Tencent/TiMi — software/games"
+      },
+      {
+        "company": "thetradedesk",
+        "tokens": [
+          "thetradedesk|wd5|ttdexternalsite"
+        ],
+        "note": "The Trade Desk — adtech"
+      },
+      {
+        "company": "thoughtspot",
+        "tokens": [
+          "thoughtspot|wd5|careers"
+        ],
+        "note": "ThoughtSpot — analytics software"
+      },
+      {
+        "company": "tieto",
+        "tokens": [
+          "tieto|wd3|tieto_referral_site"
+        ],
+        "note": "TietoEVRY — IT services"
+      },
+      {
+        "company": "volarisgroup",
+        "tokens": [
+          "volarisgroup|wd3|bibliocommons",
+          "volarisgroup|wd3|bravurasecurity",
+          "volarisgroup|wd3|catertrax",
+          "volarisgroup|wd3|centurisk",
+          "volarisgroup|wd3|charitydynamics",
+          "volarisgroup|wd3|chevinfleet",
+          "volarisgroup|wd3|companywatch",
+          "volarisgroup|wd3|core",
+          "volarisgroup|wd3|criterions",
+          "volarisgroup|wd3|crosscap",
+          "volarisgroup|wd3|dragintra",
+          "volarisgroup|wd3|equivant",
+          "volarisgroup|wd3|functionpoint",
+          "volarisgroup|wd3|gallery",
+          "volarisgroup|wd3|goassetworks",
+          "volarisgroup|wd3|gold-vision",
+          "volarisgroup|wd3|imperial",
+          "volarisgroup|wd3|intellicene",
+          "volarisgroup|wd3|intempo",
+          "volarisgroup|wd3|marinegroup",
+          "volarisgroup|wd3|medaptus",
+          "volarisgroup|wd3|metafile",
+          "volarisgroup|wd3|momentm",
+          "volarisgroup|wd3|primetics",
+          "volarisgroup|wd3|sansio",
+          "volarisgroup|wd3|silvervine",
+          "volarisgroup|wd3|squirrels",
+          "volarisgroup|wd3|systemtechnik",
+          "volarisgroup|wd3|tarantosystems",
+          "volarisgroup|wd3|topaz",
+          "volarisgroup|wd3|transtrack",
+          "volarisgroup|wd3|trapezegroupits",
+          "volarisgroup|wd3|trapezeuk",
+          "volarisgroup|wd3|uniquebusinesssystems",
+          "volarisgroup|wd3|webcheckout",
+          "volarisgroup|wd3|wennsoft",
+          "volarisgroup|wd3|windward",
+          "volarisgroup|wd3|wynnena"
+        ],
+        "note": "Volaris Group — 37 software subsidiaries"
+      },
+      {
+        "company": "yanolja",
+        "tokens": [
+          "yanolja|wd102|external_yanolja"
+        ],
+        "note": "Yanolja — travel tech"
+      }
+    ],
+    "medium_review": [
+      {
+        "company": "att",
+        "tokens": [
+          "att|wd1|attcollege",
+          "att|wd1|attcollegespecialinvite",
+          "att|wd1|attspecialinvite",
+          "att|wd1|cricket"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "boeing",
+        "tokens": [
+          "boeing|wd1|aaeoy",
+          "boeing|wd1|naba",
+          "boeing|wd1|nsbe",
+          "boeing|wd1|sase",
+          "boeing|wd1|shpe",
+          "boeing|wd1|usbln",
+          "boeing|wd1|woct"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "fedex",
+        "tokens": [
+          "fedex|wd1|fcc_external",
+          "fedex|wd1|fdw_external_career_site",
+          "fedex|wd1|ftn_external_career_site",
+          "fedex|wd1|fxe-us_external_career_site",
+          "fedex|wd1|fxf-mex-external",
+          "fedex|wd1|fxf_external_career_site",
+          "fedex|wd1|fxo_external",
+          "fedex|wd1|fxs-fxc_external_career_site",
+          "fedex|wd1|fxs_external_targeted_career_site"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "generalmotors",
+        "tokens": [
+          "generalmotors|wd5|careers_gm_private"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "emerson",
+        "tokens": [
+          "emerson|wd5|emerson_college_ft_faculty"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "dyson",
+        "tokens": [
+          "dyson|wd3|the_dyson_institute_careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "abbott",
+        "tokens": [
+          "abbott|wd5|agency",
+          "abbott|wd5|equest"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "nytimes",
+        "tokens": [
+          "nytimes|wd5|editorial",
+          "nytimes|wd5|fellowship",
+          "nytimes|wd5|intern-biz",
+          "nytimes|wd5|inyt",
+          "nytimes|wd5|marketing",
+          "nytimes|wd5|news",
+          "nytimes|wd5|nyt",
+          "nytimes|wd5|product-and-design",
+          "nytimes|wd5|residency",
+          "nytimes|wd5|tech",
+          "nytimes|wd5|wirecutter"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "condenast",
+        "tokens": [
+          "condenast|wd5|pubworx_external_career_site"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "warnerbros",
+        "tokens": [
+          "warnerbros|wd5|francais"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "iheartmedia",
+        "tokens": [
+          "iheartmedia|wd5|external_ihm",
+          "iheartmedia|wd5|ihm_corporate_site",
+          "iheartmedia|wd5|ihm_internships_site",
+          "iheartmedia|wd5|ihm_marketing_site",
+          "iheartmedia|wd5|ihm_sales_site"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "kantar",
+        "tokens": [
+          "kantar|wd3|kantarad",
+          "kantar|wd3|kantarbdcd",
+          "kantar|wd3|kantarcf",
+          "kantar|wd3|kantarel",
+          "kantar|wd3|kantarevenbreak",
+          "kantar|wd3|kantaro",
+          "kantar|wd3|kantarsc",
+          "kantar|wd3|memo2",
+          "kantar|wd3|worldpanelexternal"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "dynata",
+        "tokens": [
+          "dynata|wd108|callcenter"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "jll",
+        "tokens": [
+          "jll|wd1|lasallecareers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "wework",
+        "tokens": [
+          "wework|wd1|commondesk"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "zoetis",
+        "tokens": [
+          "zoetis|wd5|zoetis_intern"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "carrier",
+        "tokens": [
+          "carrier|wd5|kgs_jobs"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "brinks",
+        "tokens": [
+          "brinks|wd5|carreiras_brinks",
+          "brinks|wd5|paiexternalcareers",
+          "brinks|wd5|sitio_dominicana",
+          "brinks|wd5|sitio_panama",
+          "brinks|wd5|trabaja_con_nosotros"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "panduit",
+        "tokens": [
+          "panduit|wd1|interncoop"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "rollsroyce",
+        "tokens": [
+          "rollsroyce|wd3|apprentice",
+          "rollsroyce|wd3|workexperience"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "valmet",
+        "tokens": [
+          "valmet|wd103|factorypal"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "vroom",
+        "tokens": [
+          "vroom|wd5|vroom"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "orange",
+        "tokens": [
+          "orange|wd3|orange_career"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "talktalk",
+        "tokens": [
+          "talktalk|wd3|talktalkcareers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "truist",
+        "tokens": [
+          "truist|wd1|afco"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "bmo",
+        "tokens": [
+          "bmo|wd3|external-air-miles"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "cibc",
+        "tokens": [
+          "cibc|wd3|campus"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "bbva",
+        "tokens": [
+          "bbva|wd3|bbva"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "lloyds",
+        "tokens": [
+          "lloyds|wd3|early-careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "lbg",
+        "tokens": [
+          "lbg|wd3|graduate_careers",
+          "lbg|wd3|lbg_higherapprenticecareers",
+          "lbg|wd3|undergraduate_careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "fifththird",
+        "tokens": [
+          "fifththird|wd5|dividendcareers",
+          "fifththird|wd5|providecareers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "raymondjames",
+        "tokens": [
+          "raymondjames|wd1|raymondjamesearlycareers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "ntrs",
+        "tokens": [
+          "ntrs|wd1|ntcampus"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "invesco",
+        "tokens": [
+          "invesco|wd1|ivzearlycareers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "barings",
+        "tokens": [
+          "barings|wd1|early_talent"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "guggenheim",
+        "tokens": [
+          "guggenheim|wd1|guggenheim_undergraduate_programs"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "moelis",
+        "tokens": [
+          "moelis|wd1|university-hires"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "northwesternmutual",
+        "tokens": [
+          "northwesternmutual|wd5|corporate-careers-private"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "corebridgefinancial",
+        "tokens": [
+          "corebridgefinancial|wd1|laya"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "transamerica",
+        "tokens": [
+          "transamerica|wd5|spain"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "sunlife",
+        "tokens": [
+          "sunlife|wd3|fullscoperms",
+          "sunlife|wd3|maxwellhealth",
+          "sunlife|wd3|slcmanagement"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "abrdn",
+        "tokens": [
+          "abrdn|wd3|finimize"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "absa",
+        "tokens": [
+          "absa|wd3|nbc_careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "aviva",
+        "tokens": [
+          "aviva|wd1|aviva_investors_external"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "bupa",
+        "tokens": [
+          "bupa|wd3|bguk_event_landing"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "brownadvisory",
+        "tokens": [
+          "brownadvisory|wd1|brown-interns"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "americancentury",
+        "tokens": [
+          "americancentury|wd5|avantiscareers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "mckesson",
+        "tokens": [
+          "mckesson|wd3|acquisition_campus",
+          "mckesson|wd3|rxsscareers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "davita",
+        "tokens": [
+          "davita|wd1|uk_international"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "geisinger",
+        "tokens": [
+          "geisinger|wd5|geisingervolunteer"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "montefiore",
+        "tokens": [
+          "montefiore|wd12|meac"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "sentara",
+        "tokens": [
+          "sentara|wd1|scs"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "globusmedical",
+        "tokens": [
+          "globusmedical|wd5|bba_careers",
+          "globusmedical|wd5|ncs_careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "novavax",
+        "tokens": [
+          "novavax|wd1|careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "genmab",
+        "tokens": [
+          "genmab|wd3|genmab_careers_site"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "gamestop",
+        "tokens": [
+          "gamestop|wd5|careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "tapestry",
+        "tokens": [
+          "tapestry|wd108|tapestry_careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "aritzia",
+        "tokens": [
+          "aritzia|wd3|calling_new_graduates",
+          "aritzia|wd3|internships"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "columbiasportswearcompany",
+        "tokens": [
+          "columbiasportswearcompany|wd5|mountain_hardwear_careers",
+          "columbiasportswearcompany|wd5|sorel_careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "fivebelow",
+        "tokens": [
+          "fivebelow|wd1|fivebelowcareers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "dollartree",
+        "tokens": [
+          "dollartree|wd5|dollartreeca"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "meijer",
+        "tokens": [
+          "meijer|wd5|fresh_thyme_stores_external_career_site",
+          "meijer|wd5|fresh_thyme_support_and_distribution_external_career_site",
+          "meijer|wd5|meijer_market_format"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "material",
+        "tokens": [
+          "material|wd1|material_external_career_site"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      },
+      {
+        "company": "paper",
+        "tokens": [
+          "paper|wd3|paper_careers"
+        ],
+        "note": "has software dept but not tech-first — recommend un-excluding"
+      }
+    ],
+    "dropped_collisions": [
+      {
+        "company": "galileo",
+        "reason": "Galileo Global Education (Domus/NABA art schools), not Galileo FinTech"
+      },
+      {
+        "company": "sci",
+        "reason": "Service Corporation International — funeral services"
+      },
+      {
+        "company": "echo",
+        "reason": "trucking site (roadtex), not Echo software"
+      },
+      {
+        "company": "bird",
+        "reason": "construction recruiting site (nason), not Bird"
+      },
+      {
+        "company": "park",
+        "reason": "Park University — education"
+      },
+      {
+        "company": "stark",
+        "reason": "building-materials group, not a software co"
+      },
+      {
+        "company": "alto",
+        "reason": "unconfirmable (Alto Ingredients/Pharmacy/rideshare ambiguity)"
+      },
+      {
+        "company": "astro",
+        "reason": "likely Astro Malaysia broadcaster"
+      },
+      {
+        "company": "monarch",
+        "reason": "ambiguous (Monarch Money/Casino/Tractor)"
+      },
+      {
+        "company": "helios",
+        "reason": "unconfirmable"
+      },
+      {
+        "company": "clark",
+        "reason": "Clark (construction/enterprises)"
+      },
+      {
+        "company": "vernon",
+        "reason": "Vernon promotional products"
+      }
+    ]
+  }
+}

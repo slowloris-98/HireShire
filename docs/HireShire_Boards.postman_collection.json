@@ -1,0 +1,186 @@
+{
+  "info": {
+    "name": "HireShire — Job Board APIs",
+    "description": "All job-board endpoints HireShire's scrapers hit: Greenhouse, Ashby, Lever, Workday, BambooHR.\n\nSet the collection variables (slugs/tokens) under the collection's Variables tab, then send.\n\nSource of truth: hireshire/scrapers/*.py",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "greenhouse_token", "value": "stripe", "type": "string" },
+    { "key": "greenhouse_job_id", "value": "7954688", "type": "string" },
+    { "key": "ashby_token", "value": "ramp", "type": "string" },
+    { "key": "lever_token", "value": "leverdemo", "type": "string" },
+    { "key": "lever_limit", "value": "100", "type": "string" },
+    { "key": "lever_skip", "value": "0", "type": "string" },
+    { "key": "workday_company", "value": "nvidia", "type": "string" },
+    { "key": "workday_wd_num", "value": "5", "type": "string" },
+    { "key": "workday_site", "value": "NVIDIAExternalCareerSite", "type": "string" },
+    { "key": "workday_external_path", "value": "/job/US-CA-Santa-Clara/System-Level-Test-Engineer_JR2018821", "type": "string" },
+    { "key": "bamboohr_slug", "value": "100percentgroup", "type": "string" },
+    { "key": "bamboohr_job_id", "value": "106", "type": "string" },
+    { "key": "browser_ua", "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Greenhouse",
+      "item": [
+        {
+          "name": "List jobs (with content)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": {
+              "raw": "https://boards-api.greenhouse.io/v1/boards/{{greenhouse_token}}/jobs?content=true",
+              "protocol": "https",
+              "host": [ "boards-api", "greenhouse", "io" ],
+              "path": [ "v1", "boards", "{{greenhouse_token}}", "jobs" ],
+              "query": [ { "key": "content", "value": "true" } ]
+            },
+            "description": "Full listing incl. job HTML content. Pagination is via the RFC-5988 `Link` response header (rel=\"next\"). 404 => dead slug."
+          }
+        },
+        {
+          "name": "Job detail (with questions)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": {
+              "raw": "https://boards-api.greenhouse.io/v1/boards/{{greenhouse_token}}/jobs/{{greenhouse_job_id}}?questions=true",
+              "protocol": "https",
+              "host": [ "boards-api", "greenhouse", "io" ],
+              "path": [ "v1", "boards", "{{greenhouse_token}}", "jobs", "{{greenhouse_job_id}}" ],
+              "query": [ { "key": "questions", "value": "true" } ]
+            },
+            "description": "Adds application questions to a single job. Set {{greenhouse_job_id}} from a list entry's `id`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ashby",
+      "item": [
+        {
+          "name": "List jobs (job board)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": {
+              "raw": "https://api.ashbyhq.com/posting-api/job-board/{{ashby_token}}",
+              "protocol": "https",
+              "host": [ "api", "ashbyhq", "com" ],
+              "path": [ "posting-api", "job-board", "{{ashby_token}}" ]
+            },
+            "description": "Single call returns all postings under `jobs[]` incl. `descriptionPlain`. No pagination. 404 => dead slug."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lever",
+      "item": [
+        {
+          "name": "List postings (paged)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "application/json" } ],
+            "url": {
+              "raw": "https://api.lever.co/v0/postings/{{lever_token}}?mode=json&limit={{lever_limit}}&skip={{lever_skip}}",
+              "protocol": "https",
+              "host": [ "api", "lever", "co" ],
+              "path": [ "v0", "postings", "{{lever_token}}" ],
+              "query": [
+                { "key": "mode", "value": "json" },
+                { "key": "limit", "value": "{{lever_limit}}" },
+                { "key": "skip", "value": "{{lever_skip}}" }
+              ]
+            },
+            "description": "Returns a JSON array of postings. Page by bumping `skip` by `limit` (100) until fewer than `limit` are returned. Unknown company => `{\"ok\": false, ...}`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workday",
+      "item": [
+        {
+          "name": "List jobs (CXS search)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "User-Agent", "value": "{{browser_ua}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appliedFacets\": {},\n  \"limit\": 20,\n  \"offset\": 0,\n  \"searchText\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "https://{{workday_company}}.wd{{workday_wd_num}}.myworkdayjobs.com/wday/cxs/{{workday_company}}/{{workday_site}}/jobs",
+              "protocol": "https",
+              "host": [ "{{workday_company}}", "wd{{workday_wd_num}}", "myworkdayjobs", "com" ],
+              "path": [ "wday", "cxs", "{{workday_company}}", "{{workday_site}}", "jobs" ]
+            },
+            "description": "POST search. Page by incrementing `offset` by 20 until `offset >= total`. Browser UA required (soft-blocks otherwise). 404/410/422 => dead board; 401/403 => board blocked (WAF/IP)."
+          }
+        },
+        {
+          "name": "Job detail (externalPath)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "User-Agent", "value": "{{browser_ua}}" }
+            ],
+            "url": {
+              "raw": "https://{{workday_company}}.wd{{workday_wd_num}}.myworkdayjobs.com/wday/cxs/{{workday_company}}/{{workday_site}}{{workday_external_path}}",
+              "protocol": "https",
+              "host": [ "{{workday_company}}", "wd{{workday_wd_num}}", "myworkdayjobs", "com" ],
+              "path": [ "wday", "cxs", "{{workday_company}}", "{{workday_site}}{{workday_external_path}}" ]
+            },
+            "description": "Detail for one posting. `{{workday_external_path}}` is a list entry's `externalPath` (already starts with `/job/...`), appended directly to the CXS base."
+          }
+        }
+      ]
+    },
+    {
+      "name": "BambooHR",
+      "item": [
+        {
+          "name": "List openings",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "User-Agent", "value": "{{browser_ua}}" }
+            ],
+            "url": {
+              "raw": "https://{{bamboohr_slug}}.bamboohr.com/careers/list",
+              "protocol": "https",
+              "host": [ "{{bamboohr_slug}}", "bamboohr", "com" ],
+              "path": [ "careers", "list" ]
+            },
+            "description": "Public careers feed; openings under `result[]`. A dead board 302-redirects to the bamboohr.com marketing site (disable 'Automatically follow redirects' in Postman settings to see it). Browser UA required."
+          }
+        },
+        {
+          "name": "Opening detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "User-Agent", "value": "{{browser_ua}}" }
+            ],
+            "url": {
+              "raw": "https://{{bamboohr_slug}}.bamboohr.com/careers/{{bamboohr_job_id}}/detail",
+              "protocol": "https",
+              "host": [ "{{bamboohr_slug}}", "bamboohr", "com" ],
+              "path": [ "careers", "{{bamboohr_job_id}}", "detail" ]
+            },
+            "description": "Detail for one opening under `result.jobOpening` incl. `formFields` (application questions). Set {{bamboohr_job_id}} from a list entry's `id`."
+          }
+        }
+      ]
+    }
+  ]
+}

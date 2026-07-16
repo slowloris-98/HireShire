@@ -1,0 +1,16 @@
+# Web dashboard (Phase 5 frontend) settings — read by hireshire/webapp.
+# Only this file configures the dashboard; the pipeline phases are untouched.
+chat:
+  provider: openai           # anthropic / openai / gemini — powers the "talk to your data" agent
+  model: gpt-4o-mini         # model id for the chosen provider (API key comes from .env)
+  max_tokens: 4096           # cap on a single agent reply
+  temperature: 0.0           # used by openai/gemini only (anthropic 4.8/5 reject sampling params)
+
+server:
+  host: 127.0.0.1
+  port: 8000
+  cors_origins:              # dev origins allowed to call the API (Vite dev server)
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+
+db_path: data/hireshire.db   # shared SQLite datastore — opened READ-ONLY by the dashboard

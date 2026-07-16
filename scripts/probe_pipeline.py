@@ -38,7 +38,8 @@ sys.path.insert(0, str(ROOT))
 import matcher
 import scraper
 import tuner
-from hireshire.matcher.seen import SeenStore as _RealSeenStore
+import orchestrate
+from hireshire.storage.db import Database
 from orchestrate import _bypass_tuner, _track_results
 
 # A small, verified-live company from each board. Override with --config-dir.
@@ -151,8 +152,10 @@ async def run(args) -> None:
     _orig_load = C.load_config
     scraper.load_config = lambda p="config/scraper.yaml": _orig_load(cfg_dir / "scraper.yaml")
     scraper.BAD_SLUGS_PATH = tmp / "bad_slugs.json"
-    seen_path = tmp / "seen_jobs.json"
-    matcher.SeenStore = lambda _p, _sp=seen_path: _RealSeenStore(_sp)  # dedup store → temp, repeatable
+    # Route ALL storage (jobs, matches, seen-set, pipeline results) to one temp DB
+    # so re-runs are repeatable and your real data/hireshire.db is untouched.
+    probe_db = Database(tmp / "hireshire.db")
+    scraper.get_db = matcher.get_db = tuner.get_db = orchestrate.get_db = lambda *a, **k: probe_db
 
     results_dir = tmp / "pipeline" / run_id
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -175,14 +178,14 @@ async def run(args) -> None:
         tasks = [
             scraper.main(out_queue=q1, quiet=True, run_id=run_id),
             matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=not args.llm),
-            tuner.main(in_queue=q2, out_queue=q3, quiet=True) if args.tuner else _bypass_tuner(q2, q3),
-            _track_results(q3, results_dir),
+            tuner.main(in_queue=q2, out_queue=q3, quiet=True, run_id=run_id) if args.tuner else _bypass_tuner(q2, q3),
+            _track_results(q3, results_dir, run_id),
         ]
         await asyncio.gather(*tasks)
 
     print(f"\nSUMMARY  q1 batches={q1.count}  q2 tuner-inputs={q2.count}  q3 results={q3.count}")
     print(f"Full per-item log: {log_path}")
-    print(f"Pipeline results:  {results_dir / 'pipeline_results.json'}")
+    print(f"Pipeline results:  {results_dir / 'pipeline_results.csv'}")
 
 
 if __name__ == "__main__":

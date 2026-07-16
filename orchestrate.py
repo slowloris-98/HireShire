@@ -28,6 +28,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 import matcher
 import scraper
 import tuner
+from hireshire.storage.db import PHASE_PIPELINE, get_db
 
 load_dotenv()
 
@@ -120,27 +121,80 @@ async def _launch_apply() -> None:
         logger.info("apply skill completed successfully")
 
 
-async def _track_results(q: asyncio.Queue, results_dir: Path) -> None:
-    json_path = results_dir / "pipeline_results.json"
+async def _open_csv_append(path: Path, attempts: int = 5, base_delay: float = 0.5):
+    """Open `path` in append mode, retrying on a transient Windows lock
+    (PermissionError) with exponential backoff. Returns the open file handle,
+    or None if it could not be opened after `attempts` tries."""
+    for i in range(attempts):
+        try:
+            return path.open("a", newline="", encoding="utf-8")
+        except PermissionError:
+            if i == attempts - 1:
+                return None
+            delay = base_delay * (2 ** i)  # 0.5, 1, 2, 4 s
+            logger.warning(
+                "CSV %s is locked (attempt %d/%d); retrying in %.1fs",
+                path, i + 1, attempts, delay,
+            )
+            await asyncio.sleep(delay)
+
+
+async def _track_results(q: asyncio.Queue, results_dir: Path, run_id: str) -> None:
+    """Persist each pipeline result to the DB (O(1) per row) and append it to the
+    per-run CSV. The CSV handle is opened once for the run's lifetime; a transient
+    file lock retries with backoff and, if it never clears, degrades to DB-only
+    writes rather than crashing the pipeline (the DB is the source of truth)."""
+    db = get_db()
     csv_path = results_dir / "pipeline_results.csv"
 
-    while True:
-        record = await q.get()
-        if record is None:
-            break
+    write_header = not csv_path.exists()
+    f = await _open_csv_append(csv_path)
+    writer = None
+    if f is None:
+        logger.error(
+            "Could not open %s after retries; continuing with DB-only writes",
+            csv_path,
+        )
+    else:
+        writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS, extrasaction="ignore")
+        if write_header:
+            writer.writeheader()
+            f.flush()
 
-        existing = json.loads(json_path.read_text(encoding="utf-8")) if json_path.exists() else []
-        existing.append(record)
-        json_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    try:
+        while True:
+            record = await q.get()
+            if record is None:
+                break
 
-        write_header = not csv_path.exists()
-        with csv_path.open("a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS, extrasaction="ignore")
-            if write_header:
-                writer.writeheader()
-            writer.writerow(record)
+            await asyncio.to_thread(db.record_pipeline_result, run_id, record)
 
-        logger.info("Tracked result: %s — %s", record["company"], record["title"])
+            if writer is not None:
+                try:
+                    writer.writerow(record)
+                    f.flush()
+                except OSError as exc:
+                    logger.warning("Failed to append row to %s: %s", csv_path, exc)
+
+            logger.info("Tracked result: %s — %s", record["company"], record["title"])
+    finally:
+        if f is not None:
+            f.close()
+
+
+async def _finalise_pipeline(run_id: str, results_dir: Path, started_at: str) -> None:
+    """Export the run's pipeline results to JSON once from the DB (read by the
+    /apply skill) and record the pipeline run's summary row."""
+    db = get_db()
+    rows = await asyncio.to_thread(db.load_pipeline_results, run_id)
+    (results_dir / "pipeline_results.json").write_text(
+        json.dumps(rows, indent=2), encoding="utf-8"
+    )
+    tuned = sum(1 for r in rows if r.get("tuner_status") == "tuned")
+    await asyncio.to_thread(
+        db.finalise_run, run_id, PHASE_PIPELINE, started_at, None,
+        {"total_results": len(rows), "tuned_count": tuned},
+    )
 
 
 def _make_progress() -> Progress:
@@ -166,6 +220,7 @@ async def run_pipeline(
     apply: bool = False,
 ) -> None:
     run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    started_at = datetime.now(timezone.utc).isoformat()
 
     results_dir = Path("data/pipeline") / run_id
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -214,7 +269,7 @@ async def run_pipeline(
             if skip_matcher:
                 await scraper.main(quiet=True, run_id=run_id, on_company_start=on_company_start)
                 await q3.put(None)
-                await _track_results(q3, results_dir)
+                await _track_results(q3, results_dir, run_id)
             elif skip_tuner:
                 tasks["match"] = progress.add_task("[bold]Matching[/bold]", total=None, count_str="0 scored")
                 q1: asyncio.Queue = asyncio.Queue()
@@ -223,7 +278,7 @@ async def run_pipeline(
                     scraper.main(out_queue=q1, quiet=True, run_id=run_id, on_company_start=on_company_start),
                     matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm, on_job_score=on_job_score),
                     _bypass_tuner(q2, q3),
-                    _track_results(q3, results_dir),
+                    _track_results(q3, results_dir, run_id),
                 )
             else:
                 tasks["match"] = progress.add_task("[bold]Matching[/bold]", total=None, count_str="0 scored")
@@ -233,9 +288,11 @@ async def run_pipeline(
                 await asyncio.gather(
                     scraper.main(out_queue=q1, quiet=True, run_id=run_id, on_company_start=on_company_start),
                     matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm, on_job_score=on_job_score),
-                    tuner.main(in_queue=q2, out_queue=q3, quiet=True, on_tune=on_tune),
-                    _track_results(q3, results_dir),
+                    tuner.main(in_queue=q2, out_queue=q3, quiet=True, run_id=run_id, on_tune=on_tune),
+                    _track_results(q3, results_dir, run_id),
                 )
+
+            await _finalise_pipeline(run_id, results_dir, started_at)
 
             # Apply runs inside the same Live so its bar shares this Progress —
             # never a second Live. Requires tuned resumes, so gated like before.
@@ -265,7 +322,7 @@ async def main() -> None:
     )
     parser.add_argument(
         "--no-tuner", action="store_true",
-        help="Run scraper and matcher only; skip tuner",
+        help="Force-skip the tuner (overrides config/tuner.yaml enable_tuner)",
     )
     parser.add_argument(
         "--no-matcher", action="store_true",
@@ -277,11 +334,19 @@ async def main() -> None:
     )
     parser.add_argument(
         "--apply", action="store_true",
-        help="After each pipeline run, invoke the /apply skill to submit applications",
+        help="Force-enable the applier (overrides config/applier.yaml enable_applier)",
     )
     args = parser.parse_args()
 
     _setup_logging()
+
+    # Phase toggles default from config (enable_tuner / enable_applier); the CLI
+    # flags remain as explicit overrides so existing invocations keep working.
+    from hireshire.applier.config import load_applier_config
+    from hireshire.tuner.config import load_tuner_config
+
+    skip_tuner = args.no_tuner or not load_tuner_config().settings.enable_tuner
+    apply = args.apply or load_applier_config().settings.enable_applier
 
     interval_s = args.interval * 3600
 
@@ -292,9 +357,9 @@ async def main() -> None:
     while True:
         await run_pipeline(
             skip_matcher=args.no_matcher,
-            skip_tuner=args.no_tuner,
+            skip_tuner=skip_tuner,
             skip_llm=args.no_llm,
-            apply=args.apply,
+            apply=apply,
         )
         if args.once:
             break

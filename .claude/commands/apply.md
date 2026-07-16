@@ -6,7 +6,9 @@ Apply to shortlisted jobs using pipeline results and Playwright browser automati
 
 This skill replaces `applier.py`. It reads the latest `data/pipeline/*/pipeline_results.json`,
 opens each job's application URL in a real browser via Playwright MCP, fills the form using
-reasoning over the job-specific tuned resume, and records the result.
+reasoning over the job-specific tuned resume, and records the result in the shared SQLite
+datastore (`data/hireshire.db`, the `applied` table) via `scripts/applied_cli.py` — the same
+table `python applier.py` uses, so application state is never split across tools.
 
 ---
 
@@ -16,14 +18,19 @@ Read `config/applier.yaml`. Extract:
 - `settings.dry_run` (bool)
 - `settings.first_name`, `settings.last_name`, `settings.email`, `settings.phone`
 - `settings.inter_job_delay_s` (default 10)
-- `settings.applied_dir` (default `data/applied`)
+- `settings.applied_dir` (default `data/applied`) — used only for the `screenshots/` subdirectory
 
 Find the latest pipeline run: list all directories under `data/pipeline/`, sort by name
 (they are ISO timestamps like `2026-06-09T12-00-00Z`), take the last one.
 Read `data/pipeline/<latest>/pipeline_results.json`.
 
-Load `<applied_dir>/applied.json` (empty list if the file does not exist).
-Build a set of already-applied `job_id` values from that list.
+Get the set of already-applied `job_id` values from the `applied` table:
+
+```
+Bash: python scripts/applied_cli.py list
+```
+
+Each line of stdout is one applied `job_id` (empty output means nothing has been applied yet).
 
 Filter the pipeline results to jobs that are **not yet applied** AND:
 - `tuner_status == "tuned"`
@@ -63,7 +70,7 @@ indicates the job's location. If a location is found and it does NOT (case-insen
 contain any of `"united states"`, `"us"`, `"remote"`, `"india"`, `"worldwide"`, or
 `"anywhere"`, skip this job: print a message like
 `"Skipping <title> at <company> — location '<found_location>' is outside target regions"`
-and continue to the next job without writing any record to `applied.json`.
+and continue to the next job without recording it.
 If no location text is found on the page, continue (treat as unknown/remote).
 
 ### 3b. Fill standard identity fields
@@ -124,24 +131,22 @@ Status = `"submitted"` on success, `"error"` on failure.
 
 ### 3g. Write the apply record
 
-Append to `<applied_dir>/applied.json`. Read the current file (or start with `[]`),
-append this record, then write it back:
+Record the result in the `applied` table via the helper CLI (it upserts by `job_id`
+and stamps `applied_at` for you):
 
-```json
-{
-  "job_id": "<record.job_id>",
-  "board_token": "<record.company>",
-  "title": "<record.title>",
-  "absolute_url": "<record.job_url>",
-  "applied_at": "<current UTC ISO timestamp>",
-  "status": "dry_run" | "submitted" | "error",
-  "dry_run": true | false,
-  "screenshot": "<absolute path to screenshot or null>",
-  "error": "<error message or null>"
-}
+```
+Bash: python scripts/applied_cli.py record \
+  --job-id "<record.job_id>" \
+  --board-token "<record.company>" \
+  --title "<record.title>" \
+  --url "<record.job_url>" \
+  --status "dry_run" | "submitted" | "error" \
+  --dry-run "true" | "false" \
+  --screenshot "<absolute path to screenshot>" \   # omit if none
+  --error "<error message>"                          # omit if none
 ```
 
-Create `<applied_dir>/` if it does not exist. Write indented JSON (2 spaces).
+Omit `--screenshot` / `--error` when there is no value.
 
 ### 3h. Inter-job delay
 
@@ -167,7 +172,7 @@ Print total counts: submitted, dry_run, error.
 If any per-job step throws or the browser returns an unexpected state:
 - Set `status = "error"`, `error = <exception message>`
 - Take a screenshot if possible for debugging
-- Write the error record to `applied.json`
+- Record the error via `python scripts/applied_cli.py record ... --status error --error "<message>"`
 - Continue to the next job (do not abort the entire run)
 
 ---

@@ -56,7 +56,6 @@ def _parse_job(board_token: str, entry: dict, scraped_at: datetime) -> Optional[
             offices=offices,
             absolute_url=entry["hostedUrl"],
             updated_at=updated_at,
-            content_html=content_html,
             content_text=content_html,
             scraped_at=scraped_at,
         )

@@ -62,6 +62,7 @@ class ScraperSettings(BaseModel):
     company_timeout_s: float = 600.0
     max_age_hours: Optional[int] = None  # None = fetch all jobs regardless of age
     location_filter: list[str] = []      # empty = no filter; substring match against location + offices
+    db_path: str = "data/hireshire.db"   # shared SQLite datastore for all phases
 
     # Per-source throttling. Overridable via `settings.rate_limits` in config/scraper.yaml
     # (the YAML block replaces this dict wholesale). Sources absent from the map fall back
@@ -75,6 +76,11 @@ class ScraperSettings(BaseModel):
     # Overridable via `settings.detail_concurrency` / `settings.detail_jitter_s` in scraper.yaml.
     detail_concurrency: int = 4
     detail_jitter_s: float = 0.3
+    # List->detail boards (Workday, BambooHR) can defer the per-job detail fetch (the
+    # description) to the matcher funnel, which only hydrates jobs that survive its
+    # relevance gate. false = scrape list-only (content_text deferred); requires the
+    # matcher funnel to be enabled or those jobs reach the scorer with no content.
+    scrape_details: bool = True
     # Greenhouse's list API already returns job content, so the per-job detail
     # fetch only adds application `questions` (used by Phase 4). Off by default to
     # skip one HTTP call per job; enable when the applier needs question metadata.

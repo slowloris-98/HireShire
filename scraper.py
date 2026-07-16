@@ -26,6 +26,7 @@ from hireshire.scrapers.exceptions import BoardBlockedError, SlugNotFoundError
 from hireshire.scrapers.greenhouse import GreenhouseScraper
 from hireshire.scrapers.lever import LeverScraper
 from hireshire.scrapers.workday import WorkdayScraper
+from hireshire.storage.db import get_db
 from hireshire.storage.json_store import RunStore
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,14 @@ console = Console()
 
 BAD_SLUGS_PATH = Path("config/bad_slugs.json")
 _PLATFORMS = ("ashby", "greenhouse", "lever", "bamboohr", "workday")
+
+# Companies confirmed to post no software-engineering roles (built by
+# scripts/build_no_swe.py). Only the list->detail boards are worth pruning this way.
+# Filtered out before any HTTP call, exactly like bad_slugs — but kept in a separate
+# file so the source *_companies.json lists are never mutated and a company can be
+# re-admitted just by deleting its line here.
+NO_SWE_PATH = Path("config/no_swe.json")
+_NO_SWE_PLATFORMS = ("bamboohr", "workday")
 
 
 def _load_bad_slugs() -> dict[str, set[str]]:
@@ -45,6 +54,20 @@ def _load_bad_slugs() -> dict[str, set[str]]:
 def _save_bad_slugs(bad: dict[str, set[str]]) -> None:
     BAD_SLUGS_PATH.write_text(
         json.dumps({p: sorted(bad[p]) for p in _PLATFORMS}, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _load_no_swe() -> dict[str, set[str]]:
+    if NO_SWE_PATH.exists():
+        raw = json.loads(NO_SWE_PATH.read_text(encoding="utf-8"))
+        return {p: set(raw.get(p, [])) for p in _NO_SWE_PLATFORMS}
+    return {p: set() for p in _NO_SWE_PLATFORMS}
+
+
+def _save_no_swe(no_swe: dict[str, set[str]]) -> None:
+    NO_SWE_PATH.write_text(
+        json.dumps({p: sorted(no_swe[p]) for p in _NO_SWE_PLATFORMS}, indent=2),
         encoding="utf-8",
     )
 
@@ -79,13 +102,20 @@ async def main(
     settings = config.settings
 
     bad_slugs = _load_bad_slugs()
-    total_skipped = sum(len(v) for v in bad_slugs.values())
+    no_swe = _load_no_swe()
+    total_skipped = sum(len(v) for v in bad_slugs.values()) + sum(len(v) for v in no_swe.values())
 
     ashby_companies = [c for c in config.ashby_companies if c.ashby_token not in bad_slugs["ashby"]]
     greenhouse_companies = [c for c in config.greenhouse_companies if c.greenhouse_token not in bad_slugs["greenhouse"]]
     lever_companies = [c for c in config.lever_companies if c.lever_token not in bad_slugs["lever"]]
-    bamboohr_companies = [c for c in config.bamboohr_companies if c.bamboohr_token not in bad_slugs["bamboohr"]]
-    workday_companies = [c for c in config.workday_companies if c.workday_token not in bad_slugs["workday"]]
+    bamboohr_companies = [
+        c for c in config.bamboohr_companies
+        if c.bamboohr_token not in bad_slugs["bamboohr"] and c.bamboohr_token not in no_swe["bamboohr"]
+    ]
+    workday_companies = [
+        c for c in config.workday_companies
+        if c.workday_token not in bad_slugs["workday"] and c.workday_token not in no_swe["workday"]
+    ]
 
     if not (greenhouse_companies or lever_companies or ashby_companies or bamboohr_companies or workday_companies):
         if not quiet:
@@ -95,7 +125,7 @@ async def main(
     if run_id is None:
         run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 
-    store = RunStore(base_dir=Path("data/scraped"), run_id=run_id)
+    store = RunStore(run_id=run_id, db=get_db(settings.db_path))
     started_at = datetime.now(timezone.utc)
 
     cutoff = (
@@ -151,10 +181,12 @@ async def main(
             bamboohr_scraper = BambooHRScraper(
                 client, settings.make_limiter("bamboohr"), settings.retry_attempts,
                 detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
+                fetch_detail=settings.scrape_details,
             )
             workday_scraper = WorkdayScraper(
                 client, settings.make_limiter("workday"), settings.retry_attempts, cutoff=cutoff,
                 detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
+                fetch_detail=settings.scrape_details,
             )
 
             total_companies = (
@@ -191,8 +223,8 @@ async def main(
                             jobs = [j for j in jobs if j.updated_at >= cutoff]
                         if location_terms:
                             jobs = [j for j in jobs if _matches_location(j, location_terms)]
-                        store.save_company(token, jobs, fetch_time_s=elapsed)
-                        if out_queue is not None:
+                        await store.save_company(token, jobs, platform=platform, fetch_time_s=elapsed)
+                        if out_queue is not None and jobs:
                             await out_queue.put((token, jobs))
                         async with lock:
                             counters["jobs"] += len(jobs)
@@ -202,25 +234,19 @@ async def main(
                         async with lock:
                             newly_bad[exc.platform].append(exc.token)
                             counters["not_found"] += 1
-                        if out_queue is not None:
-                            await out_queue.put((token, []))
                     except BoardBlockedError as exc:
                         # Access refused (WAF/edge). Not pruned — retried next run.
                         elapsed = time.monotonic() - t0
                         msg = f"blocked (HTTP {exc.status_code})"
                         logger.warning("Blocked by %s — skipping (retried next run)", company.name)
-                        store.record_error(token, "blocked", msg, fetch_time_s=elapsed)
-                        if out_queue is not None:
-                            await out_queue.put((token, []))
+                        await store.record_error(token, "blocked", msg, platform=platform, fetch_time_s=elapsed)
                         async with lock:
                             counters["blocked"] += 1
                     except asyncio.TimeoutError:
                         elapsed = time.monotonic() - t0
                         msg = f"timeout after {timeout}s"
                         logger.warning("Scrape timed out: %s — skipping", company.name)
-                        store.record_error(token, "timeout", msg, fetch_time_s=elapsed)
-                        if out_queue is not None:
-                            await out_queue.put((token, []))
+                        await store.record_error(token, "timeout", msg, platform=platform, fetch_time_s=elapsed)
                         async with lock:
                             counters["errors"] += 1
                             errors_detail.append((company.name, msg))
@@ -229,7 +255,7 @@ async def main(
                         # concisely — a full traceback here is noise at scale.
                         elapsed = time.monotonic() - t0
                         msg = f"HTTP {exc.response.status_code}"
-                        store.record_error(token, "error", msg, fetch_time_s=elapsed)
+                        await store.record_error(token, "error", msg, platform=platform, fetch_time_s=elapsed)
                         logger.warning("Failed to scrape %s: %s", company.name, msg)
                         async with lock:
                             counters["errors"] += 1
@@ -237,7 +263,7 @@ async def main(
                     except Exception as exc:
                         elapsed = time.monotonic() - t0
                         msg = str(exc)
-                        store.record_error(token, "error", msg, fetch_time_s=elapsed)
+                        await store.record_error(token, "error", msg, platform=platform, fetch_time_s=elapsed)
                         logger.exception("Failed to scrape %s", company.name)
                         async with lock:
                             counters["errors"] += 1
@@ -287,7 +313,7 @@ async def main(
                     run_board(workday_companies, workday_scraper, "workday_token", "workday"),
                 )
 
-        store.save_manifest(started_at)
+        await store.finalise_run(started_at, stats=dict(counters))
     finally:
         if out_queue is not None:
             await out_queue.put(None)
@@ -319,7 +345,8 @@ async def main(
             for name, msg in errors_detail:
                 console.print(f"      [red]{name}[/red]: {msg}")
         console.print(
-            f"\n[bold green]{counters['jobs']} total jobs[/bold green] saved to [cyan]data/scraped/{run_id}/[/cyan]"
+            f"\n[bold green]{counters['jobs']} total jobs[/bold green] saved to the database "
+            f"(run [cyan]{run_id}[/cyan])"
         )
 
 

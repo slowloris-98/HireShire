@@ -24,6 +24,7 @@ from hireshire.applier.filler import FormFiller
 from hireshire.applier.loader import load_shortlisted
 from hireshire.applier.store import AppliedStore, ApplyRecord
 from hireshire.matcher.resume import extract_resume_text
+from hireshire.storage.db import get_db
 
 load_dotenv()
 
@@ -70,15 +71,11 @@ async def main() -> None:
 
     # Set up store and load jobs
     applied_dir = Path(settings.applied_dir)
-    store = AppliedStore(applied_dir)
+    db = get_db(settings.db_path)
+    store = AppliedStore(applied_dir, db=db)
     screenshots_dir = applied_dir / "screenshots"
 
-    jobs = load_shortlisted(
-        matches_dir=Path(settings.matches_dir),
-        runs_dir=Path(settings.runs_dir),
-        store=store,
-        run_id=args.run_id,
-    )
+    jobs = load_shortlisted(store=store, run_id=args.run_id, db=db)
 
     if not jobs:
         console.print("[yellow]No shortlisted jobs to apply to. Run python matcher.py first.[/yellow]")
@@ -196,7 +193,7 @@ async def main() -> None:
     console.print(
         f"\n[bold]{submitted} submitted[/bold], "
         f"{dry_runs} dry-run, {errors} error(s) "
-        f"→ [cyan]{settings.applied_dir}/applied.json[/cyan]"
+        f"→ [cyan]applied table (data/hireshire.db)[/cyan]"
     )
     if dry_run:
         console.print(

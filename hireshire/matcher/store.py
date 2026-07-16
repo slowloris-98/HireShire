@@ -1,41 +1,66 @@
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import datetime
+from typing import Optional
 
 from hireshire.matcher.scorer import MatchResult
+from hireshire.storage.db import PHASE_MATCH, Database, get_db
 
 logger = logging.getLogger(__name__)
 
 
+def is_shortlisted(result: MatchResult, threshold: int) -> bool:
+    """A never-scored result (skip_llm) passes; a scored one must clear the threshold."""
+    if result.skipped:
+        return False
+    return result.relevance_score is None or result.relevance_score >= threshold
+
+
 class MatchStore:
-    def __init__(self, base_dir: Path, run_id: str):
-        self.run_dir = base_dir / run_id
-        self.run_dir.mkdir(parents=True, exist_ok=True)
+    """Matcher persistence backed by the shared SQLite database.
+
+    Each scored result is committed immediately to the `matches` table (crash-
+    survivable — replaces the old progress.jsonl), tagged with `shortlisted` so
+    the tuner/applier can query survivors directly. `finalise` records the run's
+    summary stats.
+    """
+
+    def __init__(self, run_id: str, threshold: int, db: Optional[Database] = None) -> None:
         self.run_id = run_id
-        self._progress_path = self.run_dir / "progress.jsonl"
+        self._threshold = threshold
+        self._db = db or get_db()
 
     def load_progress(self) -> list[MatchResult]:
-        """Return results from a previous partial run (progress.jsonl present, no manifest)."""
-        if not self._progress_path.exists() or (self.run_dir / "manifest.json").exists():
-            return []
+        """Return results from a previous partial run (matches present, run not finalised)."""
+        if self._db.run_exists(self.run_id, PHASE_MATCH):
+            return []  # run already completed — nothing to resume
         results: list[MatchResult] = []
-        with self._progress_path.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        results.append(MatchResult.model_validate_json(line))
-                    except Exception:
-                        logger.warning("Skipping malformed progress line: %s", line[:80])
+        for raw in self._db.load_matches(self.run_id):
+            try:
+                results.append(MatchResult.model_validate(raw))
+            except Exception:  # noqa: BLE001
+                logger.warning("Skipping malformed match row during resume")
         return results
 
-    def append_result(self, result: MatchResult) -> None:
-        """Write one result immediately — survives a mid-run crash."""
-        with self._progress_path.open("a", encoding="utf-8") as f:
-            f.write(result.model_dump_json() + "\n")
+    async def append_result(self, result: MatchResult) -> None:
+        """Commit one result immediately — survives a mid-run crash."""
+        shortlisted = is_shortlisted(result, self._threshold)
+        await asyncio.to_thread(
+            self._db.upsert_match,
+            self.run_id,
+            result.job_id,
+            result.board_token,
+            result.title,
+            result.relevance_score,
+            shortlisted,
+            result.skipped,
+            result.skip_reason,
+            result.source_run_id,
+            result.scored_at.isoformat(),
+            result.model_dump_json(),
+        )
 
     def finalise(
         self,
@@ -46,46 +71,18 @@ class MatchStore:
         model: str,
         total_loaded: int,
     ) -> None:
-        self._write("shortlisted.json", shortlisted)
-        self._write("rejected.json", rejected)
-        self._write_manifest(shortlisted, rejected, started_at, threshold, model, total_loaded)
-        # progress.jsonl is now superseded by the final files
-        self._progress_path.unlink(missing_ok=True)
-        logger.info(
-            "Saved %d shortlisted, %d rejected to %s",
-            len(shortlisted), len(rejected), self.run_dir,
-        )
-
-    def _write(self, filename: str, results: list[MatchResult]) -> None:
-        path = self.run_dir / filename
-        path.write_text(
-            json.dumps([r.model_dump(mode="json") for r in results], indent=2, default=str),
-            encoding="utf-8",
-        )
-
-    def _write_manifest(
-        self,
-        shortlisted: list[MatchResult],
-        rejected: list[MatchResult],
-        started_at: datetime,
-        threshold: int,
-        model: str,
-        total_loaded: int,
-    ) -> None:
         skipped = [r for r in rejected if r.skipped]
-        scored = total_loaded - len(skipped)
-
-        manifest = {
-            "run_id": self.run_id,
-            "started_at": started_at.isoformat(),
-            "finished_at": datetime.now(timezone.utc).isoformat(),
+        stats = {
             "threshold": threshold,
             "model": model,
             "total_jobs_loaded": total_loaded,
-            "total_jobs_scored": scored,
+            "total_jobs_scored": total_loaded - len(skipped),
             "total_jobs_skipped": len(skipped),
             "shortlisted_count": len(shortlisted),
             "rejected_count": len(rejected) - len(skipped),
         }
-        path = self.run_dir / "manifest.json"
-        path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        self._db.finalise_run(self.run_id, PHASE_MATCH, started_at.isoformat(), None, stats)
+        logger.info(
+            "Saved %d shortlisted, %d rejected (run %s)",
+            len(shortlisted), len(rejected), self.run_id,
+        )

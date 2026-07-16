@@ -53,13 +53,13 @@ class _FakeStore:
         self.ok: dict[str, float] = {}
         self.errors: dict[str, tuple[str, float]] = {}
 
-    def save_company(self, token, jobs, fetch_time_s):
+    async def save_company(self, token, jobs, platform=None, fetch_time_s=None):
         self.ok[token] = fetch_time_s
 
-    def record_error(self, token, status, msg, fetch_time_s):
+    async def record_error(self, token, status, msg, platform=None, fetch_time_s=None):
         self.errors[token] = (status, fetch_time_s)
 
-    def save_manifest(self, started_at):
+    async def finalise_run(self, started_at, stats=None):
         pass
 
 
@@ -82,6 +82,7 @@ def test_queue_wait_does_not_count_against_timeout(monkeypatch, tmp_path):
     monkeypatch.setattr(scraper, "load_config", lambda *_a, **_k: _make_config())
     monkeypatch.setattr(scraper, "AshbyScraper", _FakeScraper)
     monkeypatch.setattr(scraper, "RunStore", lambda *a, **k: store)
+    monkeypatch.setattr(scraper, "get_db", lambda *a, **k: None)
     monkeypatch.setattr(scraper, "BAD_SLUGS_PATH", tmp_path / "bad_slugs.json")
 
     start = time.monotonic()

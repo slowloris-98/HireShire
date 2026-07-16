@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 
 class TunerSettings(BaseModel):
+    enable_tuner: bool = True  # dashboard/orchestrator default: run the tuner phase
     resume_tex_path: str = "data/resume_projects/Udayan_Resume.tex"
     resume_template_path: str = "data/resume_projects/resume_template.tex"
     projects_bullets_path: str = "data/resume_projects/projects_bullets.yaml"
@@ -14,6 +15,7 @@ class TunerSettings(BaseModel):
     matches_dir: str = "data/matches"
     runs_dir: str = "data/scraped"
     tuned_dir: str = "data/tuned"
+    db_path: str = "data/hireshire.db"
     # Shared defaults — used when per-pass overrides are not set
     model: str = "claude-sonnet-4-6"
     # Per-pass overrides (None = fall back to LLM_PROVIDER env var + model above)

@@ -60,7 +60,14 @@ class _WorkdayUrls:
         self.cxs = f"{self.base}/wday/cxs/{self.company}/{self.site}"
 
 
-def _parse_job(token: str, urls: _WorkdayUrls, list_entry: dict, detail: Optional[dict], scraped_at: datetime) -> Optional[Job]:
+def _parse_job(
+    token: str,
+    urls: _WorkdayUrls,
+    list_entry: dict,
+    detail: Optional[dict],
+    scraped_at: datetime,
+    deferred: bool = False,
+) -> Optional[Job]:
     try:
         info = (detail or {}).get("jobPostingInfo") or {}
         external_path = list_entry.get("externalPath") or ""
@@ -86,10 +93,14 @@ def _parse_job(token: str, urls: _WorkdayUrls, list_entry: dict, detail: Optiona
             absolute_url=absolute_url,
             updated_at=updated_at,
             requisition_id=str(req_id) if req_id else None,
-            content_html=content_html,
             content_text=content_html,
+            detail_path=external_path or None,
             questions=[],
-            detail_fetch_failed=(detail is None),
+            # detail is None here in two distinct cases: a fetch that failed, and
+            # list-only mode where it was never attempted. `deferred=True` (set by
+            # fetch_all in list-only mode) marks the latter so a missing detail is
+            # not reported as a failure — the funnel will hydrate it later.
+            detail_fetch_failed=(detail is None and not deferred),
             scraped_at=scraped_at,
         )
     except (KeyError, ValidationError, AttributeError) as exc:
@@ -108,6 +119,7 @@ class WorkdayScraper(AbstractScraper):
         cutoff: Optional[datetime] = None,
         detail_concurrency: int = 4,
         detail_jitter_s: float = 0.3,
+        fetch_detail: bool = True,
     ):
         self._client = client
         self._limiter = limiter
@@ -115,6 +127,7 @@ class WorkdayScraper(AbstractScraper):
         self._cutoff = cutoff
         self._detail_concurrency = max(1, detail_concurrency)
         self._detail_jitter_s = max(0.0, detail_jitter_s)
+        self._fetch_detail = fetch_detail
 
     async def fetch_all(self, token: str) -> list[Job]:
         urls = _WorkdayUrls(token)  # raises SlugNotFoundError on a malformed token
@@ -123,12 +136,56 @@ class WorkdayScraper(AbstractScraper):
             return []
 
         scraped_at = datetime.now(timezone.utc)
+
+        # List-only mode: build jobs from the cheap list payload alone and defer the
+        # per-job detail fetch (the description) to the matcher funnel, which only
+        # hydrates jobs that survive its relevance gate.
+        if not self._fetch_detail:
+            jobs = [_parse_job(token, urls, e, None, scraped_at, deferred=True) for e in list_entries]
+            return [j for j in jobs if j is not None]
+
         # Per-tenant cap so a big board (e.g. 1,200+ jobs) can't flood its own host
         # with concurrent detail fetches and trip Workday's per-tenant 429 throttle.
         detail_sem = asyncio.Semaphore(self._detail_concurrency)
         tasks = [self._fetch_detail_and_parse(token, urls, entry, scraped_at, detail_sem) for entry in list_entries]
         results = await asyncio.gather(*tasks)
         return [j for j in results if j is not None]
+
+    async def fetch_detail(self, job: Job) -> Job:
+        """Hydrate a list-only Job with its description by fetching the detail page.
+
+        Reconstructs the CXS detail URL from the token + stored `detail_path`
+        (externalPath). Returns a new Job (rebuilt through validation so the
+        content_text HTML->text stripping runs); on failure returns the job with
+        `detail_fetch_failed=True` and content_text left as-is (None)."""
+        try:
+            urls = _WorkdayUrls(job.board_token)
+            external_path = job.detail_path or ""
+            response = await self._get(f"{urls.cxs}{external_path}")
+            detail = response.json()
+            info = (detail or {}).get("jobPostingInfo") or {}
+            raw_html = info.get("jobDescription")
+        except Exception as exc:
+            logger.warning("Detail hydrate failed for Workday job %s%s: %s", job.board_token, job.detail_path, exc)
+            return job.model_validate({**job.model_dump(), "detail_fetch_failed": True})
+
+        return job.model_validate({
+            **job.model_dump(),
+            "content_text": raw_html,
+            "detail_fetch_failed": raw_html is None,
+        })
+
+    async def fetch_listings(self, token: str) -> list[tuple[str, Optional[datetime]]]:
+        """List-only classification helper: return (title, posted_date) per posting
+        WITHOUT any detail fetch. `posted_date` comes from the list-level relative
+        'postedOn' string and is None when absent/unparseable. Raises
+        SlugNotFoundError / BoardBlockedError exactly like `fetch_all`.
+
+        Instantiate the scraper with `cutoff=None` so `_fetch_all_pages` returns the
+        full board (the caller applies its own age window)."""
+        urls = _WorkdayUrls(token)
+        entries = await self._fetch_all_pages(token, urls)
+        return [((e.get("title") or ""), _parse_posted_on(e.get("postedOn"))) for e in entries]
 
     async def _fetch_all_pages(self, token: str, urls: _WorkdayUrls) -> list[dict]:
         entries: list[dict] = []

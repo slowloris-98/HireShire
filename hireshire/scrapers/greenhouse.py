@@ -86,7 +86,6 @@ def _parse_job(
             absolute_url=list_entry["absolute_url"],
             updated_at=list_entry["updated_at"],
             requisition_id=list_entry.get("requisition_id"),
-            content_html=content_html,
             content_text=content_html,
             questions=questions,
             detail_fetch_failed=(detail is None and detail_required),
