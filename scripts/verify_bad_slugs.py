@@ -25,9 +25,11 @@ from rich.console import Console
 from hireshire.config import load_config
 from hireshire.http_client import build_client
 from hireshire.scrapers.ashby import AshbyScraper
+from hireshire.scrapers.bamboohr import BambooHRScraper
 from hireshire.scrapers.exceptions import SlugNotFoundError
 from hireshire.scrapers.greenhouse import GreenhouseScraper
 from hireshire.scrapers.lever import LeverScraper
+from hireshire.scrapers.workday import WorkdayScraper
 from scraper import _PLATFORMS, BAD_SLUGS_PATH, _load_bad_slugs, _save_bad_slugs
 
 console = Console()
@@ -81,6 +83,8 @@ async def main() -> None:
             "greenhouse": GreenhouseScraper(client, sem, settings.retry_attempts),
             "lever": LeverScraper(client, sem, settings.retry_attempts, cutoff=None),
             "ashby": AshbyScraper(client, sem, settings.retry_attempts),
+            "bamboohr": BambooHRScraper(client, sem, settings.retry_attempts),
+            "workday": WorkdayScraper(client, sem, settings.retry_attempts, cutoff=None),
         }
 
         async def run_one(platform, token):

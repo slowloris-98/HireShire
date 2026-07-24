@@ -38,3 +38,7 @@ frontend/*.tsbuildinfo
 # IDE
 .vscode/
 .idea/
+
+# Large media (too big for GitHub's 100 MB limit)
+docs/pitch-demo.mp4
+*.mp4

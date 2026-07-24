@@ -1,48 +1,26 @@
+- make it usable for people from non-tech background
+
 prior:
     - chat:
         - incorrect response for how many jobs I have applied to.
         - the agent should generate the db query on the fly based on user query? or should it have more tools exposed.
-    
-    - move to backend folder - the backend part
-    - keep the readme clean short and to the point, 
-        - add screenshots 
-        - video link
-
-    - do something about the scores, don't set them as 100, instead keep them null
-    - the whole pipeline should be recorded along with the applier.
-    - check the links in the job listings section
-    - remove emoji if any
-    - ui beautification, 
-        - add some more padding spaces between fields, add and remove job boards as well.
 
 
-- can update the applied jobs from using the same email storage layer and checking if recieved an email like thankyou for applying.
+- backfill the applied jobs from using the same email storage layer and checking if recieved an email like thankyou for applying.
 
-- emperical study on the scrapped jobs and the matched job in the last run. increase the thereshold and identify the sweet spot.
+- emperical study on the scrapped jobs and the matched job in the last run. increase the funnel thereshold and identify the sweet spot.
 
-
-- Funnel at matcher using bert or minilm based on the job title.
-- we can also just fetch the job title first and then use the funnel to see if job is relevant or not, and then fetch the details
-    - move detail api in the matcher
-
-
-- so all the location facets for each workday is different and we might need to maintain applied facet json for each company.
+- Funnel at matcher using bert or minilm based on the job title, should we pass the job description through funnel as well?
 
 - insert google, microsoft and stand alone big tech
     - make a skill for job collection of these companies
 
-- how are the slugs being collected
-
 - once pipeline is finished the final pipeline json / csv should be accesible from my phone
 
-
 - 2 phase Tuner sounds good, but maybe one shot resume tuner maybe more efficient.
-    - because theevaluator will reason why not hire, but as llm when the tokens of why not enter the system it will unintentionally include those things.
+    - because the evaluator will reason why not hire, but as llm when the tokens of why not enter the system it will unintentionally include those things.
     - the skieing example, focus on the path and not the trees.
     - experiment with a couple of prompts and approaches. need to get hit rate like manav.
-
-
-
 
 
 add evals:
