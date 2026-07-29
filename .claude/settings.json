@@ -96,7 +96,22 @@
       "Bash(python -X utf8 \"C:/Users/atrey/AppData/Local/Temp/claude/d--Atreya-College-Projects-HireShire/f6c041bf-4531-4718-8b0b-1d44c6e18069/scratchpad/apply_rescore.py\" --apply)",
       "Bash(python -X *)",
       "Bash(python -X utf8 \"C:/Users/atrey/AppData/Local/Temp/claude/d--Atreya-College-Projects-HireShire/f6c041bf-4531-4718-8b0b-1d44c6e18069/scratchpad/fix_pipeline_scores.py\")",
-      "Bash(python -X utf8 \"C:/Users/atrey/AppData/Local/Temp/claude/d--Atreya-College-Projects-HireShire/f6c041bf-4531-4718-8b0b-1d44c6e18069/scratchpad/fix_pipeline_scores.py\" --apply)"
+      "Bash(python -X utf8 \"C:/Users/atrey/AppData/Local/Temp/claude/d--Atreya-College-Projects-HireShire/f6c041bf-4531-4718-8b0b-1d44c6e18069/scratchpad/fix_pipeline_scores.py\" --apply)",
+      "Bash(claude --version)",
+      "Read(//c/Users/atrey/.claude/**)",
+      "Bash(venv/Scripts/python.exe -m pytest tests/test_status_matcher.py tests/test_status_db.py tests/test_status_ingest_export.py -q)",
+      "Bash(venv/Scripts/python.exe -m pytest tests/test_db.py tests/test_funnel_persist.py -q)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0,'src'\\); import personal_agent.main, personal_agent.job_status.models, personal_agent.hireshire_client, personal_agent.job_status.classifier, personal_agent.job_status.processed_store, personal_agent.collectors.job_status_collector; print\\('imports OK'\\)\")",
+      "Bash(./venv/Scripts/python.exe -m pytest tests/test_status_matcher.py tests/test_status_db.py tests/test_status_ingest_export.py -q)",
+      "Bash(./venv/Scripts/python.exe -m pytest tests/ -q)"
+    ],
+    "additionalDirectories": [
+      "D:\\Atreya\\College\\Projects\\personal_agent\\src\\personal_agent\\job_status",
+      "D:\\Atreya\\College\\Projects\\personal_agent\\src\\personal_agent\\collectors",
+      "D:\\Atreya\\College\\Projects\\personal_agent\\src\\personal_agent",
+      "D:\\Atreya\\College\\Projects\\personal_agent",
+      "D:\\Atreya\\College\\Projects\\personal_agent\\src\\personal_agent\\responder",
+      "D:\\Atreya\\College\\Projects\\personal_agent\\tests"
     ]
   }
 }
