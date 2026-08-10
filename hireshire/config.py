@@ -17,6 +17,9 @@ class CompanyConfig(BaseModel):
     ashby_token: Optional[str] = None
     bamboohr_token: Optional[str] = None
     workday_token: Optional[str] = None
+    # Single-tenant career portals (Apple/Google/Intuit). The "token" is just the
+    # company name — see hireshire/scrapers/direct.py.
+    direct_token: Optional[str] = None
     tags: list[str] = []
 
 
@@ -36,6 +39,8 @@ _DEFAULT_RATE_LIMITS = {
     "ashby": RateLimitConfig(concurrency=4, min_interval_s=0.5),
     "bamboohr": RateLimitConfig(concurrency=6, min_interval_s=0.0),
     "workday": RateLimitConfig(concurrency=8, min_interval_s=0.0),
+    # Only 3 companies, all big-tech portals with no published limits — stay polite.
+    "direct": RateLimitConfig(concurrency=3, min_interval_s=0.5),
 }
 
 # Per-board count of in-flight company workers. This is the company-level pool
@@ -48,6 +53,7 @@ _DEFAULT_COMPANY_CONCURRENCY = {
     "ashby": 4,
     "bamboohr": 5,
     "workday": 5,
+    "direct": 3,
 }
 
 
@@ -85,6 +91,9 @@ class ScraperSettings(BaseModel):
     # fetch only adds application `questions` (used by Phase 4). Off by default to
     # skip one HTTP call per job; enable when the applier needs question metadata.
     greenhouse_fetch_questions: bool = False
+    # Pages to walk per direct career portal (Apple/Google/Intuit). They are all
+    # sorted newest-first, so a small cap plus the age cutoff keeps runs cheap.
+    direct_max_pages: int = 5
 
     @field_validator("request_timeout_s")
     @classmethod
@@ -124,6 +133,10 @@ class AppConfig(BaseModel):
     def workday_companies(self) -> list[CompanyConfig]:
         return [c for c in self.companies if c.workday_token]
 
+    @property
+    def direct_companies(self) -> list[CompanyConfig]:
+        return [c for c in self.companies if c.direct_token]
+
 
 def _read_slugs(path: Path) -> list[str]:
     """Read a flat JSON array of slugs; tolerate a missing file (returns [])."""
@@ -138,6 +151,7 @@ def _load_companies_from_jsons(
     lever_path: Path,
     bamboohr_path: Path,
     workday_path: Path,
+    direct_path: Path,
 ) -> list[CompanyConfig]:
     companies: list[CompanyConfig] = []
     for slug in _read_slugs(ashby_path):
@@ -151,6 +165,9 @@ def _load_companies_from_jsons(
     for slug in _read_slugs(workday_path):
         # Workday slug is a compound 'company|wd#|site_id'; display the company part.
         companies.append(CompanyConfig(name=slug.split("|")[0], workday_token=slug))
+    for slug in _read_slugs(direct_path):
+        # Not a slug at all — the company name keys a handler module.
+        companies.append(CompanyConfig(name=slug, direct_token=slug))
     return companies
 
 
@@ -164,6 +181,7 @@ def load_config(path: str | Path = "config/scraper.yaml") -> AppConfig:
         lever_path=base / "lever_companies.json",
         bamboohr_path=base / "bamboohr_companies.json",
         workday_path=base / "workday_companies.json",
+        direct_path=base / "direct_companies.json",
     )
     return AppConfig(
         settings=ScraperSettings(**raw.get("settings", {})),

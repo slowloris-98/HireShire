@@ -8,6 +8,11 @@ settings:
   inter_job_delay_s: 10            # seconds to wait between applications
   max_steps: 40                    # max browser-use agent steps per job
 
+  # Career portals that require an account login before showing the form — the
+  # applier cannot get past those, so skip them rather than burn max_steps.
+  # Their tuned resumes are still produced; apply to these manually.
+  exclude_companies: [google, apple, meta, microsoft, intuit]
+
   # Your details — used to fill standard application fields
   first_name: Udayan
   last_name: Atreya

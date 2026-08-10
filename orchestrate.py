@@ -8,6 +8,7 @@ via asyncio queues, then repeats on a schedule.
     python orchestrate.py --interval 2 # every 2 hours instead of 4
     python orchestrate.py --no-tuner   # scraper + matcher only (no resume tuning)
     python orchestrate.py --no-matcher # scraper only (no scoring or tuning)
+    python orchestrate.py --direct     # also scrape Google/Microsoft/Meta/Intuit/Apple
 """
 
 import argparse
@@ -16,6 +17,7 @@ import csv
 import json
 import logging
 import logging.handlers
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,6 +30,8 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 import matcher
 import scraper
 import tuner
+from hireshire.direct.config import load_direct_config
+from hireshire.direct.staging import load_staged
 from hireshire.storage.db import PHASE_PIPELINE, get_db
 
 load_dotenv()
@@ -92,14 +96,25 @@ async def _bypass_tuner(in_q: asyncio.Queue, out_q: asyncio.Queue) -> None:
     await out_q.put(None)
 
 
-async def _launch_apply() -> None:
-    skill_path = Path(".claude/commands/apply.md")
+async def _launch_skill(skill_name: str, extra: str = "") -> bool:
+    """Run a Claude Code skill as a `claude -p` subprocess. Returns success."""
+    skill_path = Path(".claude/commands") / f"{skill_name}.md"
     if not skill_path.exists():
-        logger.error("apply skill not found at %s", skill_path)
-        return
+        logger.error("%s skill not found at %s", skill_name, skill_path)
+        return False
 
-    skill_prompt = skill_path.read_text(encoding="utf-8")
-    logger.info("Launching /apply skill...")
+    skill_prompt = skill_path.read_text(encoding="utf-8") + extra
+    logger.info("Launching /%s skill...", skill_name)
+
+    # load_dotenv() puts ANTHROPIC_API_KEY (needed by the matcher/tuner LLM
+    # backends) into our environment, and the Claude CLI prefers that key over
+    # the claude.ai subscription login — billing pay-as-you-go credits and
+    # failing with "Credit balance is too low" when they run out. Strip the API
+    # auth vars so the subprocess uses the subscription instead.
+    skill_env = {
+        k: v for k, v in os.environ.items()
+        if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
+    }
 
     proc = await asyncio.create_subprocess_exec(
         "claude", "-p",
@@ -107,18 +122,71 @@ async def _launch_apply() -> None:
         skill_prompt,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=skill_env,
     )
     stdout, stderr = await proc.communicate()
     if stdout:
-        logger.info("apply output:\n%s", stdout.decode(errors="replace"))
+        logger.info("%s output:\n%s", skill_name, stdout.decode(errors="replace"))
     if proc.returncode != 0:
         logger.error(
-            "apply skill exited with code %d\n%s",
+            "%s skill exited with code %d\n%s",
+            skill_name,
             proc.returncode,
             stderr.decode(errors="replace"),
         )
-    else:
-        logger.info("apply skill completed successfully")
+        return False
+    logger.info("%s skill completed successfully", skill_name)
+    return True
+
+
+async def _launch_apply() -> None:
+    await _launch_skill("apply")
+
+
+async def _direct_scrape_stage(run_id: str, out_queue: asyncio.Queue) -> None:
+    """Scrape the direct career portals, then feed their jobs onto the matcher queue.
+
+    Runs the /scrape-direct skill, which writes `jobs` rows for `run_id` via
+    scripts/direct_cli.py and stages the same jobs as JSON. We read the staged
+    files back and put one `(company, jobs)` tuple per company onto `out_queue`,
+    matching the scraper's `tuple[str, list[Job]]` contract.
+
+    This must complete BEFORE scraper.main starts: scraper.main puts the lone
+    `None` sentinel on the queue in a finally block and the matcher stops at the
+    first `None`, so running the two concurrently would race. Sequencing it here
+    needs no merge machinery.
+    """
+    cfg = load_direct_config()
+    if not cfg.enabled_boards:
+        logger.info("Direct scrape: no boards enabled, skipping")
+        return
+
+    ok = await _launch_skill(
+        "scrape-direct",
+        f"\n\n---\n\nUse run_id `{run_id}` for this run — do NOT create a new run "
+        f"and do NOT pass --finalise to `scripts/direct_cli.py ingest`.\n",
+    )
+    if not ok:
+        logger.warning("Direct scrape skill failed; continuing with API boards only")
+
+    # Read back whatever it managed to stage, even on failure — a partial scrape
+    # is still worth forwarding.
+    jobs_by_company, malformed = await asyncio.to_thread(
+        load_staged, run_id, cfg.settings.staging_dir
+    )
+    total = 0
+    for company, jobs in sorted(jobs_by_company.items()):
+        if not jobs:  # mirrors scrape_one: only non-empty batches are enqueued
+            continue
+        await out_queue.put((company, jobs))
+        total += len(jobs)
+
+    logger.info(
+        "Direct scrape: forwarded %d jobs from %d companies%s",
+        total,
+        sum(1 for j in jobs_by_company.values() if j),
+        f" ({sum(malformed.values())} malformed)" if malformed else "",
+    )
 
 
 async def _open_csv_append(path: Path, attempts: int = 5, base_delay: float = 0.5):
@@ -218,6 +286,7 @@ async def run_pipeline(
     skip_tuner: bool = False,
     skip_llm: bool = False,
     apply: bool = False,
+    direct: bool = False,
 ) -> None:
     run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
     started_at = datetime.now(timezone.utc).isoformat()
@@ -267,6 +336,9 @@ async def run_pipeline(
     try:
         with Live(progress, console=console, refresh_per_second=4):
             if skip_matcher:
+                # No queue to feed, so the direct jobs only need to land in the DB.
+                if direct:
+                    await _direct_scrape_stage(run_id, asyncio.Queue())
                 await scraper.main(quiet=True, run_id=run_id, on_company_start=on_company_start)
                 await q3.put(None)
                 await _track_results(q3, results_dir, run_id)
@@ -274,6 +346,8 @@ async def run_pipeline(
                 tasks["match"] = progress.add_task("[bold]Matching[/bold]", total=None, count_str="0 scored")
                 q1: asyncio.Queue = asyncio.Queue()
                 q2: asyncio.Queue = asyncio.Queue()
+                if direct:
+                    await _direct_scrape_stage(run_id, q1)
                 await asyncio.gather(
                     scraper.main(out_queue=q1, quiet=True, run_id=run_id, on_company_start=on_company_start),
                     matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm, on_job_score=on_job_score),
@@ -285,6 +359,8 @@ async def run_pipeline(
                 tasks["tune"] = progress.add_task("[bold]Tuning[/bold]", total=None, count_str="0 processed")
                 q1: asyncio.Queue = asyncio.Queue()
                 q2: asyncio.Queue = asyncio.Queue()
+                if direct:
+                    await _direct_scrape_stage(run_id, q1)
                 await asyncio.gather(
                     scraper.main(out_queue=q1, quiet=True, run_id=run_id, on_company_start=on_company_start),
                     matcher.main(in_queue=q1, out_queue=q2, quiet=True, run_id=run_id, skip_llm=skip_llm, on_job_score=on_job_score),
@@ -336,6 +412,11 @@ async def main() -> None:
         "--apply", action="store_true",
         help="Force-enable the applier (overrides config/applier.yaml enable_applier)",
     )
+    parser.add_argument(
+        "--direct", action="store_true",
+        help="Force-enable the /scrape-direct skill for Google/Microsoft/Meta/Intuit/Apple "
+             "(overrides config/direct_boards.yaml enable_direct)",
+    )
     args = parser.parse_args()
 
     _setup_logging()
@@ -347,6 +428,7 @@ async def main() -> None:
 
     skip_tuner = args.no_tuner or not load_tuner_config().settings.enable_tuner
     apply = args.apply or load_applier_config().settings.enable_applier
+    direct = args.direct or load_direct_config().settings.enable_direct
 
     interval_s = args.interval * 3600
 
@@ -360,6 +442,7 @@ async def main() -> None:
             skip_tuner=skip_tuner,
             skip_llm=args.no_llm,
             apply=apply,
+            direct=direct,
         )
         if args.once:
             break
