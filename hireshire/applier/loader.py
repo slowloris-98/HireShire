@@ -16,10 +16,13 @@ def load_shortlisted(
     store: AppliedStore,
     run_id: str | None = None,
     db: Optional[Database] = None,
+    exclude_companies: Optional[list[str]] = None,
 ) -> list[tuple[MatchResult, Job]]:
     """Load shortlisted (MatchResult, Job) pairs to apply to, skipping jobs that
-    were already applied. Reads from the shared database."""
+    were already applied or belong to an excluded company. Reads from the shared
+    database."""
     db = db or get_db()
+    excluded = {c.strip().lower() for c in (exclude_companies or []) if c.strip()}
     if run_id is None:
         run_id = db.latest_run(PHASE_MATCH)
     if not run_id:
@@ -41,6 +44,12 @@ def load_shortlisted(
             continue
         if store.is_applied(mr.job_id):
             logger.info("Skipping already-applied job %s (%s)", mr.job_id, mr.title)
+            continue
+        if mr.board_token.lower() in excluded:
+            logger.info(
+                "Skipping %s (%s): %s requires an account login to apply",
+                mr.job_id, mr.title, mr.board_token,
+            )
             continue
         matches.append(mr)
         ids_by_run[mr.source_run_id].append(mr.job_id)

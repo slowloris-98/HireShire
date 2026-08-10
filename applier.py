@@ -75,7 +75,10 @@ async def main() -> None:
     store = AppliedStore(applied_dir, db=db)
     screenshots_dir = applied_dir / "screenshots"
 
-    jobs = load_shortlisted(store=store, run_id=args.run_id, db=db)
+    jobs = load_shortlisted(
+        store=store, run_id=args.run_id, db=db,
+        exclude_companies=settings.exclude_companies,
+    )
 
     if not jobs:
         console.print("[yellow]No shortlisted jobs to apply to. Run python matcher.py first.[/yellow]")

@@ -22,6 +22,7 @@ from hireshire.config import load_config
 from hireshire.http_client import build_client
 from hireshire.scrapers.ashby import AshbyScraper
 from hireshire.scrapers.bamboohr import BambooHRScraper
+from hireshire.scrapers.direct import DirectScraper
 from hireshire.scrapers.exceptions import BoardBlockedError, SlugNotFoundError
 from hireshire.scrapers.greenhouse import GreenhouseScraper
 from hireshire.scrapers.lever import LeverScraper
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 BAD_SLUGS_PATH = Path("config/bad_slugs.json")
-_PLATFORMS = ("ashby", "greenhouse", "lever", "bamboohr", "workday")
+_PLATFORMS = ("ashby", "greenhouse", "lever", "bamboohr", "workday", "direct")
 
 # Companies confirmed to post no software-engineering roles (built by
 # scripts/build_no_swe.py). Only the list->detail boards are worth pruning this way.
@@ -117,7 +118,12 @@ async def main(
         if c.workday_token not in bad_slugs["workday"] and c.workday_token not in no_swe["workday"]
     ]
 
-    if not (greenhouse_companies or lever_companies or ashby_companies or bamboohr_companies or workday_companies):
+    # Single-tenant portals: no slug can be "wrong", and DirectScraper never
+    # raises SlugNotFoundError, so there is nothing to filter out here.
+    direct_companies = list(config.direct_companies)
+
+    if not (greenhouse_companies or lever_companies or ashby_companies
+            or bamboohr_companies or workday_companies or direct_companies):
         if not quiet:
             console.print("[yellow]No companies to scrape. All slugs may be in the bad-slugs list.[/yellow]")
         return
@@ -155,6 +161,8 @@ async def main(
             sources.append(f"[bold]{len(bamboohr_companies)}[/bold] via BambooHR")
         if workday_companies:
             sources.append(f"[bold]{len(workday_companies)}[/bold] via Workday")
+        if direct_companies:
+            sources.append(f"[bold]{len(direct_companies)}[/bold] via direct portals")
         console.print(f"Fetching from {' + '.join(sources)}", end="")
         if total_skipped:
             console.print(f"  [dim]({total_skipped} known-bad slugs skipped)[/dim]")
@@ -188,6 +196,10 @@ async def main(
                 detail_concurrency=settings.detail_concurrency, detail_jitter_s=settings.detail_jitter_s,
                 fetch_detail=settings.scrape_details,
             )
+            direct_scraper = DirectScraper(
+                client, settings.make_limiter("direct"), settings.retry_attempts,
+                max_pages=settings.direct_max_pages, cutoff=cutoff,
+            )
 
             total_companies = (
                 len(greenhouse_companies)
@@ -195,6 +207,7 @@ async def main(
                 + len(ashby_companies)
                 + len(bamboohr_companies)
                 + len(workday_companies)
+                + len(direct_companies)
             )
             prog_ctx = (
                 Progress(
@@ -311,6 +324,7 @@ async def main(
                     run_board(ashby_companies, ashby_scraper, "ashby_token", "ashby"),
                     run_board(bamboohr_companies, bamboohr_scraper, "bamboohr_token", "bamboohr"),
                     run_board(workday_companies, workday_scraper, "workday_token", "workday"),
+                    run_board(direct_companies, direct_scraper, "direct_token", "direct"),
                 )
 
         await store.finalise_run(started_at, stats=dict(counters))

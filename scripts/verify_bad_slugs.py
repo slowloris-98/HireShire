@@ -26,6 +26,7 @@ from hireshire.config import load_config
 from hireshire.http_client import build_client
 from hireshire.scrapers.ashby import AshbyScraper
 from hireshire.scrapers.bamboohr import BambooHRScraper
+from hireshire.scrapers.direct import DirectScraper
 from hireshire.scrapers.exceptions import SlugNotFoundError
 from hireshire.scrapers.greenhouse import GreenhouseScraper
 from hireshire.scrapers.lever import LeverScraper
@@ -85,6 +86,10 @@ async def main() -> None:
             "ashby": AshbyScraper(client, sem, settings.retry_attempts),
             "bamboohr": BambooHRScraper(client, sem, settings.retry_attempts),
             "workday": WorkdayScraper(client, sem, settings.retry_attempts, cutoff=None),
+            # Present so `--platform direct` doesn't KeyError. In practice this
+            # stays empty: DirectScraper never raises SlugNotFoundError, so a
+            # single-tenant portal can never be pruned into bad_slugs.json.
+            "direct": DirectScraper(client, sem, settings.retry_attempts),
         }
 
         async def run_one(platform, token):

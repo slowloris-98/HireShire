@@ -14,6 +14,7 @@ data/applied/
 data/tuned/
 data/pipeline_results/
 data/pipeline/
+data/direct/
 data/seen_jobs.json
 # SQLite datastore (+ WAL/SHM sidecar files)
 data/hireshire.db

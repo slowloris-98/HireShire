@@ -1,0 +1,60 @@
+# Browser-driven career portals (the /scrape-direct Claude Code skill).
+#
+# ONLY the boards that genuinely need a real browser live here. Apple, Google and
+# Intuit were migrated to plain-HTTP scrapers and now run inside `python scraper.py`
+# with no Claude involvement at all — see hireshire/scrapers/direct.py and
+# config/direct_companies.json. Do not re-enable them here unless a portal starts
+# blocking httpx; the skill path costs tokens on every run.
+#
+# `{page}` in a list_url is substituted with the 1-based page number.
+# `{start}` is substituted with the 0-based record offset (page_size * (page-1)).
+
+settings:
+  enable_direct: true             # orchestrator default; --direct forces on (mirrors enable_applier)
+  db_path: data/hireshire.db      # shared SQLite datastore
+  staging_dir: data/direct        # skill writes <staging_dir>/<run_id>/<company>.json
+  max_pages_per_company: 3        # both boards are sorted newest-first
+  detail_fetch: title_filtered    # all | title_filtered | none
+
+boards:
+  # Eightfold AI. Its /api/apply/v2/jobs endpoint returns
+  # 403 {"message": "Not authorized for PCSX"} without a real browser session.
+  microsoft:
+    enabled: true
+    list_url: "https://apply.careers.microsoft.com/careers?start={start}&location=united+states&sort_by=timestamp&filter_include_remote=1"
+    page_size: 20               # verified: 20 cards per page, 1080 jobs total
+    # Verified selectors — do NOT rediscover these each run.
+    card_selector: 'div[data-test-id="job-listing"]'
+    link_selector: 'a[href^="/careers/job/"]'
+    detail_url: "https://apply.careers.microsoft.com/careers/job/{native_id}"
+    # Card innerText lines are [title, location, "Posted N hours ago"].
+    # The relative date parses cleanly and is the only real age signal here.
+    date_style: relative
+
+  # Facebook infra: 400s on every plain HTTP request, including the HTML page.
+  # KNOWN CAP: only ~10 of 817 jobs are reachable. The list is virtualised and
+  # would not advance via window scroll, inner-container scroll, or a show-more
+  # click. Sorted newest-first on a 4-hourly cadence, so recurring runs still
+  # catch most new postings. Take page 1 and move on — do not retry pagination.
+  meta:
+    enabled: true
+    list_url: "https://www.metacareers.com/jobsearch/?sort_by_new=true"
+    page_size: 10
+    max_pages: 1                # hard override: pagination is unsolved
+    link_selector: 'a[href^="/profile/job_details/"]'
+    # Card innerText lines are [title, location, team]. No date is exposed.
+    date_style: none
+
+  # --- migrated to Python scrapers; kept only as an emergency fallback ---
+  apple:
+    enabled: false              # -> hireshire/scrapers/handlers/apple.py
+    list_url: "https://jobs.apple.com/en-us/search?location=united-states-USA+india-INDC&sort=newest&page={page}"
+    page_size: 20
+  google:
+    enabled: false              # -> hireshire/scrapers/handlers/google.py
+    list_url: "https://www.google.com/about/careers/applications/jobs/results?location=United%20States&location=India&sort_by=date&page={page}"
+    page_size: 20
+  intuit:
+    enabled: false              # -> hireshire/scrapers/handlers/intuit.py
+    list_url: "https://jobs.intuit.com/search-jobs/results?ActiveFacetID=0&CurrentPage={page}&RecordsPerPage=15&Distance=50&RadiusUnitType=0&Keywords=&Location=&ShowRadius=False&IsPagination=True&SearchResultsModuleName=Search+Results&SearchFiltersModuleName=Search+Filters&SortCriteria=1&SortDirection=1&SearchType=5&ResultsType=0"
+    page_size: 15

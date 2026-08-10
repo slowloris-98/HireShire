@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 HireShire is a four-phase automated job search pipeline:
-1. **Scraper** — fetches job listings from Greenhouse, Ashby, and Lever job board APIs
+1. **Scraper** — fetches job listings from the Greenhouse, Ashby, Lever, BambooHR and Workday job board APIs, plus the Apple/Google/Intuit career portals over plain HTTP; Microsoft and Meta need a real browser and come in (optionally) via the `/scrape-direct` skill
 2. **Matcher** — scores jobs against a resume via LLM (Gemini / OpenAI / Anthropic)
 3. **Tuner** — two-pass resume optimizer (evaluator critique → JSON project selector → code assembler → PDF compile)
 4. **Applier** — fills out and submits job applications via Claude Code's `/apply` skill (Playwright MCP)
@@ -27,6 +27,15 @@ python scripts/verify_bad_slugs.py --prune   # re-validate config/bad_slugs.json
 python scripts/prune_runs.py --keep 10       # manual retention: delete all but the 10 most-recent runs from data/hireshire.db
 python scripts/db_stats.py                   # inspect the DB: tables + row counts + latest finalised run per phase
 python scripts/backfill_from_json.py --pipeline --dry-run   # import legacy data/pipeline/<run>/*.json into the DB
+
+# Phase 1b: Browser-only career portals (Microsoft/Meta). Apple/Google/Intuit need
+# nothing here — they are plain-HTTP scrapers inside `python scraper.py`.
+# Run via Claude Code: /scrape-direct        (standalone; creates its own scrape run)
+# Or automatically from the orchestrator with --direct
+python scripts/direct_cli.py new-run                        # print a run_id + create its staging dir
+python scripts/direct_cli.py normalize --run-id <id>        # raw browser output -> staged jobs (dates/location/dedupe)
+python scripts/direct_cli.py show --run-id <id>             # what is staged, without writing
+python scripts/direct_cli.py ingest --run-id <id> --finalise  # write staged jobs into the DB (standalone)
 
 # Phase 2: Score jobs against resume (auto-reads latest scraper run)
 python matcher.py
@@ -52,6 +61,8 @@ python orchestrate.py --no-tuner   # scraper + matcher only (skip resume tuning)
 python orchestrate.py --no-matcher # scraper only (skip scoring and tuning)
 python orchestrate.py --no-llm     # matcher auto-shortlists all title-passing jobs (no LLM scoring)
 python orchestrate.py --apply      # invoke /apply skill after each pipeline run
+python orchestrate.py --direct     # also scrape Microsoft/Meta via the /scrape-direct skill
+                                   # (Apple/Google/Intuit need no flag — they run in the normal scrape)
 
 # Standalone applier (browser-use agent; reads latest matches run)
 python applier.py --dry-run
@@ -126,16 +137,51 @@ Configured in `.env` (see `.env.example`):
 
 ### Scraper
 
-Company slugs are **not** in `config/scraper.yaml`. They live in three flat JSON arrays loaded by [hireshire/config.py](hireshire/config.py):
+Company slugs are **not** in `config/scraper.yaml`. They live in six flat JSON arrays loaded by [hireshire/config.py](hireshire/config.py):
 - `config/greenhouse_companies.json` → Greenhouse Job Board API (`job-boards.greenhouse.io/{slug}/jobs`)
 - `config/ashby_companies.json` → Ashby Job Board API (`jobs.ashbyhq.com/{slug}`)
 - `config/lever_companies.json` → Lever Job Postings API (`jobs.lever.co/{slug}`)
+- `config/bamboohr_companies.json` → BambooHR (list→detail; a dead board 302s to marketing)
+- `config/workday_companies.json` → Workday (POST-based; **compound token** `company|wd#|site_id`)
+- `config/direct_companies.json` → single-tenant career portals; the "slug" is just a company name keying a handler module (see below)
 
-`load_config()` reads these into `CompanyConfig` objects (one token field set per company) and exposes `greenhouse_companies` / `ashby_companies` / `lever_companies` properties. `config/scraper.yaml` now holds only `settings` (`concurrency`, `request_timeout_s`, `retry_attempts`, `company_timeout_s`, `max_age_hours`, `location_filter`, `db_path`).
+`load_config()` reads these into `CompanyConfig` objects (one token field set per company) and exposes `greenhouse_companies` / `ashby_companies` / `lever_companies` / `bamboohr_companies` / `workday_companies` / `direct_companies` properties. `config/scraper.yaml` now holds only `settings` (`concurrency`, `request_timeout_s`, `retry_attempts`, `company_timeout_s`, `max_age_hours`, `location_filter`, `db_path`, plus per-platform `rate_limits` / `company_concurrency` blocks that **replace the code defaults wholesale**, so every board must be listed).
+
+Adding a 7th API board means editing `hireshire/scrapers/<new>.py` (subclass `AbstractScraper`, `source` attr, `fetch_all`, map 404 → `SlugNotFoundError`), `CompanyConfig` + the rate-limit/concurrency defaults + the loader in `hireshire/config.py`, and `_PLATFORMS` plus six dispatch sites in `scraper.py`.
 
 The lists are large (~8k Greenhouse, ~4k Lever, ~3k Ashby) and bulk-sourced, so many slugs are invalid. When a slug 404s (Greenhouse/Ashby) or returns `{"ok": false}` (Lever), the scraper raises `SlugNotFoundError` ([hireshire/scrapers/exceptions.py](hireshire/scrapers/exceptions.py)) and records it in `config/bad_slugs.json`, keyed by platform. Known-bad slugs are filtered out **before** any HTTP call on every subsequent run, and newly discovered ones are appended when the run finishes — the list is self-healing. `scripts/verify_bad_slugs.py` re-validates the file against the live APIs (`--prune` removes slugs that are reachable again; `--platform` limits to one board; a slug stays bad only if it still raises `SlugNotFoundError`).
 
-The `location_filter` list does a case-insensitive substring match against `job.location.name` and `job.offices[].location`. All three APIs lack server-side location filtering, so this is applied client-side after fetching. Empty list = no filter.
+The `location_filter` list does a case-insensitive substring match against `job.location.name` and `job.offices[].location`. None of the APIs offer server-side location filtering, so this is applied client-side after fetching. Empty list = no filter.
+
+### Direct Career Portals
+
+Apple, Google, Intuit, Microsoft and Meta run their own portals rather than a multi-tenant ATS. They are split by **whether plain HTTP works**, because the browser path costs tokens on every run:
+
+| Portal | Path | Why |
+|---|---|---|
+| Apple, Google, Intuit | **Python scrapers** — no Claude at all | Reachable over httpx |
+| Microsoft, Meta | `/scrape-direct` skill + Playwright MCP | Microsoft's Eightfold API 403s (`Not authorized for PCSX`); Meta 400s every plain request |
+
+All five share `source="direct"` and `board_token=<company>`, so DB rows are identical regardless of path.
+
+**Python path.** [hireshire/scrapers/direct.py](hireshire/scrapers/direct.py) is one `DirectScraper` dispatching to a handler per company in [hireshire/scrapers/handlers/](hireshire/scrapers/handlers/). Modelling all three as ONE platform (rather than three) pays the add-a-board checklist once. Portal quirks worth knowing:
+- **Apple** — the full page of results is embedded in the served HTML as `window.__staticRouterHydrationData`, and each record carries `jobSummary`, so Apple never defers a detail fetch. Use `postingDate`, **not** `postDateInGMT` — the latter is the server's "now" and would make every job look brand new.
+- **Google** — the list HTML has no usable `<a>` tags (anchors appear only after hydration), so ids come from a `jobs/results/(\d+)-(slug)` regex; the slug doubles as a title for the matcher's title gate until the detail page supplies the real one. Detail pages *are* fully server-rendered.
+- **Intuit** — Radancy TalentBrew. `/search-jobs/results` returns JSON whose `results` key is an HTML fragment, and it needs the **full** parameter set: a trimmed query returns `{"results": "", "hasJobs": true}`, a silent empty result rather than an error.
+
+Google and Intuit are scraped list-only and hydrated by the matcher funnel — `direct` is registered in [hireshire/funnel/detail_fetcher.py](hireshire/funnel/detail_fetcher.py)'s `DETAIL_SOURCES`, and `DirectScraper.fetch_detail` dispatches per company. Apple arrives with content already set and is skipped.
+
+**Two traps these handlers exist to avoid.** First, these portals print `Mountain View, CA, USA` / `Atlanta, Georgia` with no country, so `scraper.py`'s substring `location_filter` against `"united states"` would drop **every US job** — [hireshire/direct/locations.py](hireshire/direct/locations.py) `normalize_location` appends the inferred country so the existing filter works untouched. Second, `SlugNotFoundError` permanently prunes a slug into `bad_slugs.json`; a single-tenant portal has no wrong slug, so `DirectScraper` **never raises it** (one transient layout change would otherwise disable Google forever).
+
+**Skill path.** The **`/scrape-direct` skill** ([.claude/skills/scrape-direct.md](.claude/skills/scrape-direct.md), duplicated to `.claude/commands/` like `apply.md`) covers only Microsoft and Meta, configured by [config/direct_boards.yaml](config/direct_boards.yaml) (which stores **verified `card_selector` / `link_selector` values so the skill never re-probes the DOM**). Three rules keep it cheap: selectors come from config, every `browser_evaluate` writes to `filename:` so job payloads never enter the model's context, and Meta is capped at page 1 (its virtualised list will not advance — ~10 of 817 jobs, a documented cap).
+
+The skill writes raw extractor output to `data/direct/<run_id>/raw/<company>.json`, then `python scripts/direct_cli.py normalize --run-id <id>` applies dates, the age cutoff, the location filter and dedupe in code ([hireshire/direct/normalize.py](hireshire/direct/normalize.py)) and stages `<company>.json` in the flat `StagedJob` shape ([hireshire/direct/staging.py](hireshire/direct/staging.py)). `ingest` then promotes each record to a `Job`. Malformed records are counted and skipped, never fatal. **`job_id` is namespaced as `direct:<company>:<native_id>`** because `seen_jobs` is keyed on `job_id` alone across every platform — a bare portal id would collide with a BambooHR/Workday job of the same number and be dropped as already-seen.
+
+`orchestrate.py --direct` (or `enable_direct: true`) runs `_direct_scrape_stage(run_id, q1)` **before** `scraper.main`: it launches the skill with the orchestrator's own `run_id`, then reads the staged files back and puts `(company, jobs)` tuples onto `q1` in the scraper's `tuple[str, list[Job]]` contract. It must precede `scraper.main` because that function puts the lone `None` sentinel on the queue in a `finally` and the matcher stops at the first `None` — sequencing avoids any merge machinery or race. Sharing the run_id means the pipeline CSV, the `runs` summary and the dashboard job list treat these jobs identically to ATS jobs, with no changes to the matcher, tuner or webapp.
+
+Standalone use (`/scrape-direct` with no orchestrator) creates its own run via `direct_cli.py new-run` and passes `--finalise` at ingest; `python matcher.py` then picks it up as the latest scrape run. Under the orchestrator `--finalise` must **not** be passed — `scraper.main` finalises the shared run itself.
+
+These companies are listed in `exclude_companies` in [config/applier.yaml](config/applier.yaml), honoured by both `/apply` and `hireshire/applier/loader.py`, because their forms sit behind account logins. Tuned resumes are still produced for manual use.
 
 ### Rate Limiting
 
@@ -166,6 +212,8 @@ Each script's `main()` accepts optional `in_queue`, `out_queue`, and `quiet` par
 **Skip flags** — `--no-tuner` replaces the tuner with a passthrough that marks all jobs `tuner_status: "skipped"` and writes results with null resume fields. `--no-matcher` runs the scraper only and writes an empty results file. `--no-llm` keeps the matcher in the pipeline but skips its LLM scoring, so every title-passing job is shortlisted (`relevance_score: null` — never scored) and forwarded to the tuner.
 
 **`--apply` flag** — after each pipeline run completes, the orchestrator invokes the `/apply` Claude Code skill by running `claude -p --permission-mode auto` with the skill prompt from `.claude/commands/apply.md`. This is skipped when `--no-tuner` or `--no-matcher` are active (since tuned resumes are a prerequisite). Phase 4 can also be run manually by invoking `/apply` in Claude Code at any time.
+
+**`--direct` flag** — before the scraper starts, runs the `/scrape-direct` skill through the same `claude -p` mechanism (`_launch_skill`, shared with `--apply`) and feeds its jobs onto `q1`. See the Direct Career Portals section above.
 
 ### Web Dashboard (Phase 5)
 

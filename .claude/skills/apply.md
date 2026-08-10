@@ -19,6 +19,7 @@ Read `config/applier.yaml`. Extract:
 - `settings.first_name`, `settings.last_name`, `settings.email`, `settings.phone`
 - `settings.inter_job_delay_s` (default 10)
 - `settings.applied_dir` (default `data/applied`) — used only for the `screenshots/` subdirectory
+- `settings.exclude_companies` (default empty) — companies to skip entirely
 
 Find the latest pipeline run: list all directories under `data/pipeline/`, sort by name
 (they are ISO timestamps like `2026-06-09T12-00-00Z`), take the last one.
@@ -35,6 +36,10 @@ Each line of stdout is one applied `job_id` (empty output means nothing has been
 Filter the pipeline results to jobs that are **not yet applied** AND:
 - `tuner_status == "tuned"`
 - `resume_pdf` is not null and the path exists on disk
+- `company` is not in `settings.exclude_companies` (case-insensitive). These are the
+  direct career portals scraped by `/scrape-direct` (Google, Apple, Meta, Microsoft,
+  Intuit); their forms sit behind an account login that this skill cannot clear, so
+  attempting them only burns time. Their tuned resumes are still there for manual use.
 
 Print a summary of the queue (title, company, URL) before starting.
 If the queue is empty, say so and stop.
