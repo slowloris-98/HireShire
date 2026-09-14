@@ -18,6 +18,7 @@ import json
 import logging
 import logging.handlers
 import os
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -38,6 +39,30 @@ load_dotenv()
 
 console = Console()
 logger = logging.getLogger(__name__)
+
+# The dashboard treats a pipeline run as live only while this heartbeat is fresh
+# (see LIVE_HEARTBEAT_STALE_S in hireshire/webapp/deps.py).
+HEARTBEAT_INTERVAL_S = 10
+
+
+def _start_heartbeat(run_id: str) -> threading.Event:
+    """Refresh the run's heartbeat from a thread until the returned event is set.
+
+    A thread rather than an asyncio task, so blocking work on the event loop
+    can't starve it and make a running pipeline look dead.
+    """
+    stop = threading.Event()
+    db = get_db()
+
+    def beat() -> None:
+        while not stop.wait(HEARTBEAT_INTERVAL_S):
+            try:
+                db.heartbeat_run(run_id, PHASE_PIPELINE)
+            except Exception:
+                logger.warning("Heartbeat failed for run %s", run_id, exc_info=True)
+
+    threading.Thread(target=beat, name=f"heartbeat-{run_id}", daemon=True).start()
+    return stop
 
 
 def _setup_logging() -> None:
@@ -261,7 +286,7 @@ async def _finalise_pipeline(run_id: str, results_dir: Path, started_at: str) ->
     tuned = sum(1 for r in rows if r.get("tuner_status") == "tuned")
     await asyncio.to_thread(
         db.finalise_run, run_id, PHASE_PIPELINE, started_at, None,
-        {"total_results": len(rows), "tuned_count": tuned},
+        {"status": "completed", "total_results": len(rows), "tuned_count": tuned},
     )
 
 
@@ -293,6 +318,10 @@ async def run_pipeline(
 
     results_dir = Path("data/pipeline") / run_id
     results_dir.mkdir(parents=True, exist_ok=True)
+
+    db = get_db()
+    await asyncio.to_thread(db.start_run, run_id, PHASE_PIPELINE, started_at)
+    heartbeat = _start_heartbeat(run_id)
 
     logger.info("=" * 60)
     logger.info("Pipeline starting — run %s", run_id)
@@ -378,8 +407,25 @@ async def run_pipeline(
                 progress.update(apply_task, count_str="done")
 
         logger.info("Pipeline complete — run %s", run_id)
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.warning("Pipeline stopped — run %s", run_id)
+        try:
+            # Synchronous on purpose: the event loop is being torn down.
+            db.finalise_run(run_id, PHASE_PIPELINE, started_at, None, {"status": "stopped"})
+        except Exception:
+            logger.exception("Could not record stopped pipeline run %s", run_id)
+        raise
     except Exception:
         logger.exception("Pipeline failed — run %s", run_id)
+        try:
+            await asyncio.to_thread(
+                db.finalise_run, run_id, PHASE_PIPELINE, started_at, None,
+                {"status": "failed"},
+            )
+        except Exception:
+            logger.exception("Could not record failed pipeline run %s", run_id)
+    finally:
+        heartbeat.set()
 
 
 async def main() -> None:

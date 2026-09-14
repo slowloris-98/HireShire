@@ -6,12 +6,16 @@ per phase, redirecting output to logs/<phase>.log for the live tail.
 """
 from __future__ import annotations
 
+import logging
+import os
 import subprocess
 import sys
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs"
@@ -54,6 +58,30 @@ def _build_argv(phase: str, flags: dict[str, Any]) -> list[str]:
     return argv
 
 
+def _build_child_env() -> dict[str, str]:
+    """Use UTF-8 for text written to the redirected child-process log."""
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8:replace"
+    return env
+
+
+def _mark_pipeline_stopped(pid: int) -> None:
+    """Finalise the pipeline run of a killed orchestrator.
+
+    terminate() is a hard kill on Windows, so the orchestrator never records its
+    own end; without this its run would read as unfinished forever.
+    """
+    try:
+        from hireshire.storage.db import PHASE_PIPELINE, get_db
+        from hireshire.webapp.deps import get_settings
+
+        stopped = get_db(get_settings().db_path).stop_unfinished_runs(PHASE_PIPELINE, pid)
+        if stopped:
+            logger.info("Marked pipeline run(s) %s as stopped", ", ".join(stopped))
+    except Exception:
+        logger.exception("Could not mark pipeline runs of pid %s as stopped", pid)
+
+
 class _Proc:
     def __init__(self, popen: subprocess.Popen, argv: list[str], log_path: Path) -> None:
         self.popen = popen
@@ -91,6 +119,7 @@ class RunManager:
             popen = subprocess.Popen(
                 argv, cwd=str(PROJECT_ROOT),
                 stdout=logf, stderr=subprocess.STDOUT,
+                env=_build_child_env(),
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             self._procs[phase] = _Proc(popen, argv, log_path)
@@ -100,12 +129,15 @@ class RunManager:
         with self._lock:
             p = self._procs.get(phase)
             if p and p.popen.poll() is None:
+                pid = p.popen.pid
                 p.popen.terminate()
                 try:
                     p.popen.wait(timeout=8)
                 except subprocess.TimeoutExpired:
                     p.popen.kill()
                 self._last_exit[phase] = p.popen.returncode if p.popen.returncode is not None else -1
+                if phase == "orchestrator":
+                    _mark_pipeline_stopped(pid)
             return self.status(phase)
 
     def status(self, phase: str) -> dict:

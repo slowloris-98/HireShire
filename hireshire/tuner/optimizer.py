@@ -146,17 +146,6 @@ class GeminiOptimizerBackend:
 
 
 # ---------------------------------------------------------------------------
-# OpenAI helper
-# ---------------------------------------------------------------------------
-
-def _openai_token_limit(model: str, n: int) -> dict:
-    """Return {max_completion_tokens: n} for newer-generation models that dropped max_tokens."""
-    if any(model.startswith(p) for p in ("o1", "o3", "gpt-5")):
-        return {"max_completion_tokens": n}
-    return {"max_tokens": n}
-
-
-# ---------------------------------------------------------------------------
 # OpenAI backend
 # ---------------------------------------------------------------------------
 
@@ -183,7 +172,6 @@ class OpenAIOptimizerBackend:
                     {"role": "user", "content": prompt},
                 ],
                 response_format={"type": "json_object"},
-                **_openai_token_limit(self._settings.model, 4096),
             )
             if self._settings.request_interval_s > 0:
                 await asyncio.sleep(self._settings.request_interval_s)

@@ -17,7 +17,11 @@ router = APIRouter(prefix="/api", tags=["data"])
 @router.get("/runs", response_model=RunsResponse)
 def get_runs() -> RunsResponse:
     db = get_readdb()
-    return RunsResponse(run_ids=db.all_run_ids(), latest=db.latest_runs_by_phase())
+    return RunsResponse(
+        run_ids=db.all_run_ids(),
+        live_run_ids=db.live_run_ids(),
+        latest=db.latest_runs_by_phase(),
+    )
 
 
 @router.get("/jobs", response_model=list[JobRow])

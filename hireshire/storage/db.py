@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -186,10 +187,52 @@ class Database:
         """Most recent completed run_id for a phase, or None."""
         with self._lock:
             row = self._conn.execute(
-                "SELECT run_id FROM runs WHERE phase=? ORDER BY started_at DESC LIMIT 1",
+                "SELECT run_id FROM runs WHERE phase=? AND finished_at IS NOT NULL "
+                "ORDER BY started_at DESC LIMIT 1",
                 (phase,),
             ).fetchone()
         return row["run_id"] if row else None
+
+    def start_run(self, run_id: str, phase: str, started_at: str) -> None:
+        """Register an in-progress phase before it begins producing results.
+
+        The owning pid and a heartbeat timestamp let readers tell a genuinely
+        running phase from one whose process was killed before it could finalise.
+        """
+        stats = {"status": "running", "pid": os.getpid(), "heartbeat_at": now_iso()}
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO runs(run_id, phase, started_at, finished_at, stats_json) "
+                "VALUES (?, ?, ?, NULL, ?)",
+                (run_id, phase, started_at, json.dumps(stats)),
+            )
+
+    def heartbeat_run(self, run_id: str, phase: str) -> None:
+        """Refresh an in-progress run's heartbeat; a no-op once it is finalised."""
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE runs SET stats_json = json_set(COALESCE(stats_json, '{}'), '$.heartbeat_at', ?) "
+                "WHERE run_id=? AND phase=? AND finished_at IS NULL",
+                (now_iso(), run_id, phase),
+            )
+
+    def stop_unfinished_runs(self, phase: str, pid: int) -> list[str]:
+        """Mark every unfinished run owned by `pid` as stopped. Returns their run_ids."""
+        with self._lock, self._conn:
+            rows = self._conn.execute(
+                "SELECT run_id FROM runs WHERE phase=? AND finished_at IS NULL "
+                "AND json_extract(stats_json, '$.pid') = ?",
+                (phase, pid),
+            ).fetchall()
+            run_ids = [r["run_id"] for r in rows]
+            for run_id in run_ids:
+                self._conn.execute(
+                    "UPDATE runs SET finished_at=?, "
+                    "stats_json = json_set(COALESCE(stats_json, '{}'), '$.status', 'stopped') "
+                    "WHERE run_id=? AND phase=?",
+                    (now_iso(), run_id, phase),
+                )
+        return run_ids
 
     def run_exists(self, run_id: str, phase: str) -> bool:
         with self._lock:
@@ -345,7 +388,7 @@ class Database:
         job_id: str,
         board_token: str,
         title: str,
-        relevance_score: int,
+        relevance_score: int | None,
         shortlisted: bool,
         skipped: bool,
         skip_reason: str | None,
