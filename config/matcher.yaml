@@ -1,11 +1,11 @@
 settings:
-  threshold: 80              # min relevance_score (0-100) to shortlist a job
+  threshold: 70              # min relevance_score (0-100) to shortlist a job
   concurrency: 8             # parallel LLM calls (free tier: keep at 1)
   provider: openai           # gemini / openai / anthropic (omit/null to fall back to LLM_PROVIDER env var)
   model: gpt-5-nano    # model name for the chosen LLM_PROVIDER
   request_interval_s: 2    # seconds to wait between requests (13s = ~4.6 RPM; set to 0 on paid tier)
   max_content_chars: 8000    # truncate job description to this length before sending
-  skip_llm: true                   # set true to skip LLM scoring; all title-passing jobs are shortlisted
+  skip_llm: false                  # set true to skip LLM scoring; all title-passing jobs are shortlisted
   resume_path: data/resume_projects/Udayan_Resume.pdf    # path to your resume (relative to project root)
   projects_path: data/resume_projects/projects.md        # optional extra context appended to candidate profile
   db_path: data/hireshire.db  # shared SQLite datastore — reads the scraper's jobs, writes the matches table
@@ -77,7 +77,7 @@ funnel:
       - full stack developer
       - solutions architect
       - forward deployed engineer
-    threshold: 0.35   # min cosine similarity to pass — NEEDS empirical tuning on real titles
+    threshold: 0.4    # min cosine similarity to pass — NEEDS empirical tuning on real titles
   detail_fetch:
     concurrency: 10   # concurrent detail hydrations
     jitter_s: 0.3

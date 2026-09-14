@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Phase = Literal["scraper", "matcher", "funnel", "tuner", "applier"]
 RunPhase = Literal["scraper", "matcher", "tuner", "applier", "orchestrator"]
@@ -26,6 +26,7 @@ class JobRow(BaseModel):
 
 class RunsResponse(BaseModel):
     run_ids: list[str]
+    live_run_ids: list[str] = Field(default_factory=list)
     latest: dict[str, Optional[str]]           # phase -> run_id
 
 

@@ -13,12 +13,34 @@ export default function JobListPanel() {
 
   const [rows, setRows] = useState<JobRow[]>([]);
   const [runIds, setRunIds] = useState<string[]>([]);
+  const [liveRunIds, setLiveRunIds] = useState<string[]>([]);
+  const [liveTick, setLiveTick] = useState(0);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    api.runs().then((r) => setRunIds(r.run_ids)).catch(() => {});
+    let cancelled = false;
+    const refreshRuns = () => api.runs().then((r) => {
+      if (!cancelled) {
+        setRunIds(r.run_ids);
+        setLiveRunIds(r.live_run_ids ?? []);
+      }
+    }).catch(() => {});
+    refreshRuns();
+    const timer = setInterval(refreshRuns, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
+
+  const selectedRunIsLive = !!filter.run_id && liveRunIds.includes(filter.run_id);
+
+  useEffect(() => {
+    if (!selectedRunIsLive || chatJobIds) return;
+    const timer = setInterval(() => setLiveTick((tick) => tick + 1), 3000);
+    return () => clearInterval(timer);
+  }, [selectedRunIsLive, chatJobIds]);
 
   useEffect(() => {
     // An empty chat result means "no jobs matched" — show nothing. Fetching with
@@ -47,7 +69,7 @@ export default function JobListPanel() {
       .then(setRows)
       .catch((e) => setErr(String(e)))
       .finally(() => setLoading(false));
-  }, [filter, chatJobIds, chatRunId, refreshKey]);
+  }, [filter, chatJobIds, chatRunId, refreshKey, liveTick, selectedRunIsLive]);
 
   return (
     <div className="panel">
@@ -66,7 +88,10 @@ export default function JobListPanel() {
             <select value={filter.run_id ?? ""} onChange={(e) => setFilter({ run_id: e.target.value || undefined })}>
               <option value="">latest</option>
               <option value="all">all runs</option>
-              {runIds.map((r) => (
+              {liveRunIds.map((r) => (
+                <option key={r} value={r}>LIVE — {r}</option>
+              ))}
+              {runIds.filter((r) => !liveRunIds.includes(r)).map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>

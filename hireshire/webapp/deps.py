@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -22,6 +23,9 @@ from hireshire.storage.db import (
 from hireshire.webapp.config import FrontendConfig, load_frontend_config
 
 PHASES = [PHASE_SCRAPE, PHASE_MATCH, PHASE_TUNE, PHASE_PIPELINE]
+
+# Must comfortably exceed orchestrate.HEARTBEAT_INTERVAL_S.
+LIVE_HEARTBEAT_STALE_S = 45
 
 
 class ReadDB:
@@ -46,10 +50,34 @@ class ReadDB:
 
     def latest_run(self, phase: str) -> str | None:
         rows = self._q(
-            "SELECT run_id FROM runs WHERE phase=? ORDER BY started_at DESC LIMIT 1",
+            "SELECT run_id FROM runs WHERE phase=? AND finished_at IS NOT NULL "
+            "ORDER BY started_at DESC LIMIT 1",
             (phase,),
         )
         return rows[0]["run_id"] if rows else None
+
+    # An unfinished run only counts as live while its orchestrator keeps the
+    # heartbeat fresh — a hard-killed or crashed process never finalises its row.
+    @staticmethod
+    def _heartbeat_cutoff() -> str:
+        return (datetime.now(timezone.utc) - timedelta(seconds=LIVE_HEARTBEAT_STALE_S)).isoformat()
+
+    def live_run_ids(self) -> list[str]:
+        rows = self._q(
+            "SELECT run_id FROM runs WHERE phase=? AND finished_at IS NULL "
+            "AND json_extract(stats_json, '$.heartbeat_at') >= ? "
+            "ORDER BY started_at DESC",
+            (PHASE_PIPELINE, self._heartbeat_cutoff()),
+        )
+        return [r["run_id"] for r in rows]
+
+    def is_live_run(self, run_id: str) -> bool:
+        rows = self._q(
+            "SELECT 1 FROM runs WHERE run_id=? AND phase=? AND finished_at IS NULL "
+            "AND json_extract(stats_json, '$.heartbeat_at') >= ?",
+            (run_id, PHASE_PIPELINE, self._heartbeat_cutoff()),
+        )
+        return bool(rows)
 
     def all_run_ids(self) -> list[str]:
         rows = self._q(
@@ -133,6 +161,16 @@ class ReadDB:
 
     def load_matches(self, run_id: str) -> list[dict]:
         rows = self._q("SELECT raw_json FROM matches WHERE run_id=?", (run_id,))
+        return [json.loads(r["raw_json"]) for r in rows]
+
+    def load_live_llm_matches(self, run_id: str) -> list[dict]:
+        """LLM-scored, non-skipped rows committed during an active matcher run."""
+        rows = self._q(
+            "SELECT raw_json FROM matches WHERE run_id=? "
+            "AND relevance_score IS NOT NULL AND skipped=0 "
+            "ORDER BY relevance_score DESC, scored_at DESC",
+            (run_id,),
+        )
         return [json.loads(r["raw_json"]) for r in rows]
 
     # -- applied -------------------------------------------------------------

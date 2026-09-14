@@ -4,7 +4,7 @@ settings:
   retry_attempts: 3
   company_timeout_s: 600  # SAFETY-NET backstop only (clock starts at worker pickup, not queue-wait);
                           # the per-call request_timeout_s is the primary bound. Rarely fires.
-  max_age_hours: 24  # only keep jobs updated in the last N hours; remove this line to fetch all
+  max_age_hours: 48  # only keep jobs updated in the last N hours; remove this line to fetch all
   location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
     - "united states"
     - "remote"
@@ -47,13 +47,13 @@ settings:
   # listed; omitting one makes it fall back to the global `concurrency` above with no spacing.
   # These are host-safe widths (Greenhouse is cached/unlimited; the others throttle per-tenant).
   rate_limits:
-    greenhouse: { concurrency: 50, min_interval_s: 0.0 }
-    lever:      { concurrency: 15,  min_interval_s: 0.0 }
-    ashby:      { concurrency: 10,  min_interval_s: 0.0 }
-    bamboohr:   { concurrency: 50,  min_interval_s: 0.0 }
-    workday:    { concurrency: 20,  min_interval_s: 0.0 }
+    greenhouse: {concurrency: 50, min_interval_s: 0.0}
+    lever: {concurrency: 15, min_interval_s: 0.0}
+    ashby: {concurrency: 10, min_interval_s: 0.0}
+    bamboohr: {concurrency: 50, min_interval_s: 0.0}
+    workday: {concurrency: 20, min_interval_s: 0.0}
     # Big-tech portals with no published limits, hit without an API key — stay polite.
-    direct:     { concurrency: 3,   min_interval_s: 0.5 }
+    direct: {concurrency: 3, min_interval_s: 0.5}
 
   # Pages walked per direct career portal. All are sorted newest-first, so this
   # plus max_age_hours bounds the cost.

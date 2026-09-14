@@ -1,8 +1,9 @@
 """Unified job-list query — the single source both the /api/jobs endpoint and the
 chat agent's search tools use to build the bottom-right job-list panel rows.
 
-A run's rows come from `pipeline_results` when present (they carry the tuned
-resume path + tuner status), otherwise from shortlisted `matches`. Applied
+An active run's rows come from its persisted LLM-scored `matches`, overlaid with
+any tuner output already in `pipeline_results`. A completed run comes from
+`pipeline_results` when present, otherwise from shortlisted `matches`. Applied
 status is layered on from the cross-run `applied` table.
 
 Passing run_id=ALL_RUNS spans every run to date instead of a single one.
@@ -34,6 +35,30 @@ def _rows_for_run(db: ReadDB, run_id: str) -> list[JobRow]:
     applied = db.applied_by_id()
     locations = db.job_locations(run_id)
     pipeline = db.load_pipeline_results(run_id)
+
+    if db.is_live_run(run_id):
+        pipeline_by_id = {str(r["job_id"]): r for r in pipeline}
+        rows: list[JobRow] = []
+        for match in db.load_live_llm_matches(run_id):
+            jid = str(match.get("job_id"))
+            result = pipeline_by_id.get(jid, {})
+            app = applied.get(jid)
+            resume_pdf = result.get("resume_pdf")
+            rows.append(JobRow(
+                job_id=jid,
+                title=match.get("title") or result.get("title") or "",
+                company=match.get("board_token") or result.get("company"),
+                location=locations.get(jid) or match.get("location"),
+                job_url=match.get("absolute_url") or result.get("job_url"),
+                relevance_score=match.get("relevance_score"),
+                resume_pdf=resume_pdf,
+                resume_available=bool(resume_pdf),
+                run_id=run_id,
+                tuner_status=result.get("tuner_status"),
+                applied=app is not None,
+                applied_status=(app or {}).get("status"),
+            ))
+        return rows
 
     rows: list[JobRow] = []
     if pipeline:

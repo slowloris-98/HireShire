@@ -15,6 +15,7 @@ export interface JobRow {
 
 export interface RunsResponse {
   run_ids: string[];
+  live_run_ids: string[];
   latest: Record<string, string | null>;
 }
 
