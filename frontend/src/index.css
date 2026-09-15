@@ -140,6 +140,7 @@ td a { color: var(--accent); text-decoration: none; }
 td a:hover { text-decoration: underline; }
 .badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; }
 .badge.applied { background: #16311f; color: var(--good); border: 1px solid #235e39; }
+.badge.manual { background: #3b2d0b; color: #f4c95d; border: 1px solid #745714; }
 .badge.no { background: #2a2f36; color: var(--muted); border: 1px solid var(--border); }
 .score { font-variant-numeric: tabular-nums; font-weight: 600; }
 

@@ -5,6 +5,7 @@ import logging
 import re
 import shutil
 import subprocess
+from urllib.parse import quote
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,20 @@ from hireshire.tuner.evaluator import EvaluatorResult
 logger = logging.getLogger(__name__)
 
 _TEX_NAME = "Udayan_Atreya_Resume"
+_WINDOWS_FORBIDDEN = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_WINDOWS_RESERVED = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
+def _artifact_dir_name(job_id: str) -> str:
+    """Return a Windows-safe, deterministic directory name for a job ID."""
+    stem = job_id.rstrip(". ").split(".", 1)[0].upper()
+    if job_id and not _WINDOWS_FORBIDDEN.search(job_id) and job_id == job_id.rstrip(". ") and stem not in _WINDOWS_RESERVED:
+        return job_id
+    return f"_job_{quote(job_id, safe='-_.')}"
 
 
 @dataclass
@@ -69,7 +84,11 @@ class TuneStore:
 
     def is_done(self, job_id: str) -> bool:
         """True if the optimized tex already exists for this job (completion marker)."""
-        return (self.run_dir / job_id / f"{_TEX_NAME}.tex").exists()
+        return (self.job_dir(job_id) / f"{_TEX_NAME}.tex").exists()
+
+    def job_dir(self, job_id: str) -> Path:
+        """Return the artifact directory for a job without changing its database ID."""
+        return self.run_dir / _artifact_dir_name(job_id)
 
     def save_job(
         self,
@@ -83,7 +102,7 @@ class TuneStore:
         resume_optimized.tex is written last so is_done() only returns True
         when all files are present.
         """
-        job_dir = self.run_dir / job_id
+        job_dir = self.job_dir(job_id)
         job_dir.mkdir(exist_ok=True)
 
         (job_dir / "job_description.txt").write_text(job_description, encoding="utf-8")
@@ -115,7 +134,7 @@ class TuneStore:
         Writes job_description.txt + critique.json (which carries reject/reject_reason) but no
         tex — no resume is produced, so the job is not counted as tuned and is_done() stays False.
         """
-        job_dir = self.run_dir / job_id
+        job_dir = self.job_dir(job_id)
         job_dir.mkdir(exist_ok=True)
         (job_dir / "job_description.txt").write_text(job_description, encoding="utf-8")
         (job_dir / "critique.json").write_text(

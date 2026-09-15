@@ -41,6 +41,13 @@ Filter the pipeline results to jobs that are **not yet applied** AND:
   Intuit); their forms sit behind an account login that this skill cannot clear, so
   attempting them only burns time. Their tuned resumes are still there for manual use.
 
+For each otherwise eligible job whose `job_url` hostname ends in `.myworkdayjobs.com`, do
+not navigate or attempt the form. Record it immediately with status
+`"manual_intervention_needed"`, its normal job metadata, the effective `dry_run` value, and
+error `"Workday applications require manual intervention."`. These records are terminal for
+automation, so they will not re-enter future queues; the dashboard's job and resume links are
+available for the manual application.
+
 Print a summary of the queue (title, company, URL) before starting.
 If the queue is empty, say so and stop.
 
@@ -145,7 +152,7 @@ Bash: python scripts/applied_cli.py record \
   --board-token "<record.company>" \
   --title "<record.title>" \
   --url "<record.job_url>" \
-  --status "dry_run" | "submitted" | "error" \
+  --status "dry_run" | "submitted" | "error" | "manual_intervention_needed" \
   --dry-run "true" | "false" \
   --screenshot "<absolute path to screenshot>" \   # omit if none
   --error "<error message>"                          # omit if none
@@ -157,6 +164,7 @@ Omit `--screenshot` / `--error` when there is no value.
 
 If there are more jobs remaining, wait `settings.inter_job_delay_s` seconds before
 proceeding to the next job. Use `Bash(sleep <n>)` for this.
+Do not wait after a Workday manual-intervention record.
 
 ---
 
@@ -168,7 +176,8 @@ After all jobs are processed, print a Markdown table:
 |---------|-------|--------|------------|
 | ...     | ...   | ✓ dry_run / ✓ submitted / ✗ error | path |
 
-Print total counts: submitted, dry_run, error.
+Include `manual intervention needed` in the status column for Workday records.
+Print total counts: submitted, dry_run, manual intervention needed, error.
 
 ---
 

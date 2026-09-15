@@ -4,11 +4,10 @@ settings:
   retry_attempts: 3
   company_timeout_s: 600  # SAFETY-NET backstop only (clock starts at worker pickup, not queue-wait);
                           # the per-call request_timeout_s is the primary bound. Rarely fires.
-  max_age_hours: 48  # only keep jobs updated in the last N hours; remove this line to fetch all
+  max_age_hours: 24  # only keep jobs updated in the last N hours; remove this line to fetch all
   location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
-    - "united states"
-    - "remote"
-    - "india"
+    - united states
+    - remote
   db_path: data/hireshire.db  # shared SQLite datastore — scraper writes the jobs + run_companies tables
 
   # Per-board count of in-flight company workers. Each board's queue is drained by this many

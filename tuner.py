@@ -307,9 +307,10 @@ async def main(
 
     # --- Set up store and LLM backends ---
     # In pipeline mode the orchestrator passes its shared run_id so data/tuned/
-    # aligns with the scrape/matches/pipeline runs; otherwise mint a fresh one.
+    # aligns with the scrape/matches/pipeline runs. A CLI --run-id is the same
+    # shared ID, which lets an interrupted run resume completed artifacts.
     if run_id is None:
-        run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+        run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
     db = get_db(settings.db_path)
     store = TuneStore(base_dir=Path(settings.tuned_dir), run_id=run_id, db=db)
     started_at = datetime.now(timezone.utc)
@@ -360,14 +361,15 @@ async def main(
                 if on_tune:
                     on_tune(status, job.title, job.board_token)
                 if out_queue is not None:
-                    pdf_path = store.run_dir / job.job_id / "Udayan_Atreya_Resume.pdf"
+                    job_dir = store.job_dir(job.job_id)
+                    pdf_path = job_dir / "Udayan_Atreya_Resume.pdf"
                     await out_queue.put({
                         "job_id": job.job_id,
                         "title": job.title,
                         "company": job.board_token,
                         "job_url": str(match_result.absolute_url) if isinstance(match_result, MatchResult) else "",
                         "relevance_score": match_result.relevance_score if isinstance(match_result, MatchResult) else None,
-                        "resume_tex": str(store.run_dir / job.job_id / "Udayan_Atreya_Resume.tex") if status == "tuned" else None,
+                        "resume_tex": str(job_dir / "Udayan_Atreya_Resume.tex") if status == "tuned" else None,
                         "resume_pdf": str(pdf_path) if (status == "tuned" and pdf_path.exists()) else None,
                         "tuner_status": status,
                         "tuner_run_id": run_id,
@@ -417,7 +419,7 @@ async def main(
                 f"({len(job.content_text or '')} chars)\n"
             )
     else:
-        raw_jobs = load_shortlisted(run_id=args.run_id, db=db)
+        raw_jobs = load_shortlisted(run_id=args.run_id or run_id, db=db)
         if not raw_jobs:
             if not quiet:
                 console.print(

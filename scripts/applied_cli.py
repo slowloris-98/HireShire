@@ -37,7 +37,7 @@ def main() -> None:
     rec.add_argument("--title", default="")
     rec.add_argument("--url", default="")
     rec.add_argument("--status", required=True,
-                     help='"dry_run" | "submitted" | "error" | "skipped"')
+                     help='"dry_run" | "submitted" | "error" | "skipped" | "manual_intervention_needed"')
     rec.add_argument("--dry-run", default="false", help="true|false")
     rec.add_argument("--screenshot", default=None)
     rec.add_argument("--error", default=None)

@@ -19,11 +19,18 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn
 from rich.table import Table
 
 from hireshire.applier.answerer import QuestionAnswerer
-from hireshire.applier.config import load_applier_config
+from hireshire.applier.config import ApplierSettings, load_applier_config
 from hireshire.applier.filler import FormFiller
 from hireshire.applier.loader import load_shortlisted
+from hireshire.applier.manual_intervention import (
+    MANUAL_INTERVENTION_STATUS,
+    WORKDAY_MANUAL_INTERVENTION_MESSAGE,
+    requires_manual_intervention,
+)
 from hireshire.applier.store import AppliedStore, ApplyRecord
 from hireshire.matcher.resume import extract_resume_text
+from hireshire.matcher.scorer import MatchResult
+from hireshire.models.job import Job
 from hireshire.storage.db import get_db
 
 load_dotenv()
@@ -40,7 +47,79 @@ STATUS_STYLE = {
     "dry_run": "[bold cyan]dry_run[/bold cyan]",
     "error": "[bold red]error[/bold red]",
     "skipped": "[yellow]skipped[/yellow]",
+    MANUAL_INTERVENTION_STATUS: "[bold yellow]manual intervention needed[/bold yellow]",
 }
+
+
+async def apply_job(
+    match_result: MatchResult,
+    job: Job,
+    *,
+    settings: ApplierSettings,
+    resume_text: str,
+    resume_path: Path,
+    dry_run: bool,
+    answerer: QuestionAnswerer,
+    filler: FormFiller,
+) -> ApplyRecord:
+    """Apply to one eligible job, or persist a manual-action result for Workday."""
+    if requires_manual_intervention(job):
+        logger.info("Skipping Workday job %s/%s: %s", job.board_token, job.job_id,
+                    WORKDAY_MANUAL_INTERVENTION_MESSAGE)
+        return ApplyRecord(
+            job_id=job.job_id,
+            board_token=job.board_token,
+            title=job.title,
+            absolute_url=str(match_result.absolute_url),
+            applied_at=datetime.now(timezone.utc),
+            status=MANUAL_INTERVENTION_STATUS,
+            dry_run=dry_run,
+            error=WORKDAY_MANUAL_INTERVENTION_MESSAGE,
+        )
+
+    try:
+        answers = await answerer.generate_answers(
+            job=job,
+            resume_text=resume_text,
+            first_name=settings.first_name,
+            last_name=settings.last_name,
+            email=settings.email,
+            phone=settings.phone,
+        )
+        result = await filler.fill(
+            url=str(match_result.absolute_url),
+            answers=answers,
+            resume_path=resume_path,
+            first_name=settings.first_name,
+            last_name=settings.last_name,
+            email=settings.email,
+            phone=settings.phone,
+            job_id=job.job_id,
+            dry_run=dry_run,
+        )
+        return ApplyRecord(
+            job_id=job.job_id,
+            board_token=job.board_token,
+            title=job.title,
+            absolute_url=str(match_result.absolute_url),
+            applied_at=datetime.now(timezone.utc),
+            status=result["status"],
+            dry_run=dry_run,
+            screenshot=result.get("screenshot"),
+            error=result.get("error"),
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error for job %s/%s", job.board_token, job.job_id)
+        return ApplyRecord(
+            job_id=job.job_id,
+            board_token=job.board_token,
+            title=job.title,
+            absolute_url=str(match_result.absolute_url),
+            applied_at=datetime.now(timezone.utc),
+            status="error",
+            dry_run=dry_run,
+            error=str(exc),
+        )
 
 
 async def main() -> None:
@@ -112,65 +191,27 @@ async def main() -> None:
     ) as progress:
         task_bar = progress.add_task("Applying...", total=len(jobs))
 
-        for match_result, job in jobs:
+        for index, (match_result, job) in enumerate(jobs):
             progress.update(task_bar, description=f"[cyan]{job.board_token}[/cyan] / {job.title[:40]}")
 
-            record: ApplyRecord
-
-            try:
-                # Step 1: generate answers
-                answers = await answerer.generate_answers(
-                    job=job,
-                    resume_text=resume_text,
-                    first_name=settings.first_name,
-                    last_name=settings.last_name,
-                    email=settings.email,
-                    phone=settings.phone,
-                )
-
-                # Step 2: fill and optionally submit
-                result = await filler.fill(
-                    url=str(match_result.absolute_url),
-                    answers=answers,
-                    resume_path=resume_path,
-                    first_name=settings.first_name,
-                    last_name=settings.last_name,
-                    email=settings.email,
-                    phone=settings.phone,
-                    job_id=job.job_id,
-                    dry_run=dry_run,
-                )
-
-                record = ApplyRecord(
-                    job_id=job.job_id,
-                    board_token=job.board_token,
-                    title=job.title,
-                    absolute_url=str(match_result.absolute_url),
-                    applied_at=datetime.now(timezone.utc),
-                    status=result["status"],
-                    dry_run=dry_run,
-                    screenshot=result.get("screenshot"),
-                    error=result.get("error"),
-                )
-
-            except Exception as exc:
-                logger.exception("Unexpected error for job %s/%s", job.board_token, job.job_id)
-                record = ApplyRecord(
-                    job_id=job.job_id,
-                    board_token=job.board_token,
-                    title=job.title,
-                    absolute_url=str(match_result.absolute_url),
-                    applied_at=datetime.now(timezone.utc),
-                    status="error",
-                    dry_run=dry_run,
-                    error=str(exc),
-                )
+            needs_manual_intervention = requires_manual_intervention(job)
+            record = await apply_job(
+                match_result,
+                job,
+                settings=settings,
+                resume_text=resume_text,
+                resume_path=resume_path,
+                dry_run=dry_run,
+                answerer=answerer,
+                filler=filler,
+            )
 
             store.append(record)
             records.append(record)
             progress.advance(task_bar)
 
-            if settings.inter_job_delay_s > 0 and (match_result, job) != jobs[-1]:
+            if (not needs_manual_intervention and settings.inter_job_delay_s > 0
+                    and index < len(jobs) - 1):
                 await asyncio.sleep(settings.inter_job_delay_s)
 
     # Summary table
@@ -193,9 +234,10 @@ async def main() -> None:
     submitted = sum(1 for r in records if r.status == "submitted")
     dry_runs = sum(1 for r in records if r.status == "dry_run")
     errors = sum(1 for r in records if r.status == "error")
+    manual_intervention = sum(1 for r in records if r.status == MANUAL_INTERVENTION_STATUS)
     console.print(
         f"\n[bold]{submitted} submitted[/bold], "
-        f"{dry_runs} dry-run, {errors} error(s) "
+        f"{dry_runs} dry-run, {manual_intervention} manual intervention needed, {errors} error(s) "
         f"→ [cyan]applied table (data/hireshire.db)[/cyan]"
     )
     if dry_run:

@@ -156,7 +156,9 @@ export default function JobListPanel() {
                 </td>
                 <td>
                   {r.applied ? (
-                    <span className="badge applied">{r.applied_status ?? "applied"}</span>
+                    <span className={`badge ${r.applied_status === "manual_intervention_needed" ? "manual" : "applied"}`}>
+                      {r.applied_status === "manual_intervention_needed" ? "manual intervention needed" : r.applied_status ?? "applied"}
+                    </span>
                   ) : (
                     <span className="badge no">no</span>
                   )}

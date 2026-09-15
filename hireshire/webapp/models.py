@@ -21,7 +21,7 @@ class JobRow(BaseModel):
     run_id: Optional[str] = None
     tuner_status: Optional[str] = None
     applied: bool = False
-    applied_status: Optional[str] = None       # submitted / dry_run / error / skipped
+    applied_status: Optional[str] = None       # submitted / dry_run / error / skipped / manual_intervention_needed
 
 
 class RunsResponse(BaseModel):
