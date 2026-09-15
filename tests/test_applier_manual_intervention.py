@@ -9,6 +9,7 @@ from applier import apply_job
 from hireshire.applier.config import ApplierSettings
 from hireshire.applier.loader import load_shortlisted
 from hireshire.applier.manual_intervention import (
+    DIRECT_MANUAL_INTERVENTION_MESSAGE,
     MANUAL_INTERVENTION_STATUS,
     WORKDAY_MANUAL_INTERVENTION_MESSAGE,
 )
@@ -38,12 +39,12 @@ class TrackingFiller:
         return {"status": "dry_run", "error": None, "screenshot": None}
 
 
-def _job(job_id: str, source: str) -> Job:
+def _job(job_id: str, source: str, board_token: str = "acme") -> Job:
     now = datetime.now(timezone.utc)
     hostname = "acme.wd5.myworkdayjobs.com" if source == "workday" else "example.com"
     return Job(
         source=source,
-        board_token="acme",
+        board_token=board_token,
         job_id=job_id,
         title="Backend Engineer",
         location=Location(name="Remote"),
@@ -90,6 +91,22 @@ def test_workday_job_requires_manual_intervention_without_automation(tmp_path):
     assert filler.calls == 0
 
 
+def test_direct_job_requires_manual_intervention_without_automation(tmp_path):
+    job = _job("direct:google:123", "direct", board_token="google")
+    answerer = TrackingAnswerer()
+    filler = TrackingFiller()
+
+    record = asyncio.run(apply_job(
+        _match(job), job, settings=_settings(), resume_text="resume", resume_path=Path(tmp_path / "resume.pdf"),
+        dry_run=False, answerer=answerer, filler=filler,
+    ))
+
+    assert record.status == MANUAL_INTERVENTION_STATUS
+    assert record.error == DIRECT_MANUAL_INTERVENTION_MESSAGE
+    assert answerer.calls == 0
+    assert filler.calls == 0
+
+
 def test_non_workday_job_keeps_automated_flow(tmp_path):
     job = _job("gh-1", "greenhouse")
     answerer = TrackingAnswerer()
@@ -125,6 +142,38 @@ def test_manual_intervention_record_is_persisted_and_prevents_retry(tmp_path):
     assert persisted[0]["status"] == MANUAL_INTERVENTION_STATUS
     assert persisted[0]["error"] == WORKDAY_MANUAL_INTERVENTION_MESSAGE
     assert load_shortlisted(store, run_id="match-run", db=db) == []
+
+
+def test_direct_job_in_exclude_companies_reaches_manual_action_preflight(tmp_path):
+    db = Database(tmp_path / "test.db")
+    job = _job("direct:google:123", "direct", board_token="google")
+    match = _match(job)
+    db.insert_jobs("scrape-run", [job])
+    db.upsert_match(
+        "match-run", job.job_id, job.board_token, job.title, 90, True, False, None,
+        "scrape-run", match.scored_at.isoformat(), match.model_dump_json(),
+    )
+
+    jobs = load_shortlisted(
+        AppliedStore(db=db), run_id="match-run", db=db, exclude_companies=["google"],
+    )
+
+    assert [(mr.job_id, loaded_job.source) for mr, loaded_job in jobs] == [(job.job_id, "direct")]
+
+
+def test_non_direct_excluded_company_remains_omitted(tmp_path):
+    db = Database(tmp_path / "test.db")
+    job = _job("gh-1", "greenhouse", board_token="google")
+    match = _match(job)
+    db.insert_jobs("scrape-run", [job])
+    db.upsert_match(
+        "match-run", job.job_id, job.board_token, job.title, 90, True, False, None,
+        "scrape-run", match.scored_at.isoformat(), match.model_dump_json(),
+    )
+
+    assert load_shortlisted(
+        AppliedStore(db=db), run_id="match-run", db=db, exclude_companies=["google"],
+    ) == []
 
 
 def test_dashboard_job_row_exposes_manual_intervention_status(tmp_path):

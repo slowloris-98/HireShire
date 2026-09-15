@@ -18,9 +18,8 @@ class ApplierSettings(BaseModel):
     inter_job_delay_s: float = 10.0
     max_steps: int = 40
 
-    # Companies whose application forms sit behind an account login, so the
-    # applier cannot complete them. Matched case-insensitively against a job's
-    # board_token. Their tuned resumes are still generated for manual use.
+    # Non-direct companies whose forms are skipped silently. Direct-source jobs
+    # are recorded as manual intervention needed before this exclusion is applied.
     exclude_companies: list[str] = []
 
     first_name: str = ""

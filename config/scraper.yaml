@@ -7,7 +7,6 @@ settings:
   max_age_hours: 24  # only keep jobs updated in the last N hours; remove this line to fetch all
   location_filter:  # case-insensitive substring match; remove or leave empty to fetch all locations
     - united states
-    - remote
   db_path: data/hireshire.db  # shared SQLite datastore — scraper writes the jobs + run_companies tables
 
   # Per-board count of in-flight company workers. Each board's queue is drained by this many

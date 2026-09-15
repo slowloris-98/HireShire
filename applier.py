@@ -24,7 +24,7 @@ from hireshire.applier.filler import FormFiller
 from hireshire.applier.loader import load_shortlisted
 from hireshire.applier.manual_intervention import (
     MANUAL_INTERVENTION_STATUS,
-    WORKDAY_MANUAL_INTERVENTION_MESSAGE,
+    manual_intervention_message,
     requires_manual_intervention,
 )
 from hireshire.applier.store import AppliedStore, ApplyRecord
@@ -62,10 +62,10 @@ async def apply_job(
     answerer: QuestionAnswerer,
     filler: FormFiller,
 ) -> ApplyRecord:
-    """Apply to one eligible job, or persist a manual-action result for Workday."""
+    """Apply to one eligible job, or persist a manual-action result when needed."""
     if requires_manual_intervention(job):
-        logger.info("Skipping Workday job %s/%s: %s", job.board_token, job.job_id,
-                    WORKDAY_MANUAL_INTERVENTION_MESSAGE)
+        message = manual_intervention_message(job)
+        logger.info("Skipping %s job %s/%s: %s", job.source, job.board_token, job.job_id, message)
         return ApplyRecord(
             job_id=job.job_id,
             board_token=job.board_token,
@@ -74,7 +74,7 @@ async def apply_job(
             applied_at=datetime.now(timezone.utc),
             status=MANUAL_INTERVENTION_STATUS,
             dry_run=dry_run,
-            error=WORKDAY_MANUAL_INTERVENTION_MESSAGE,
+            error=message,
         )
 
     try:

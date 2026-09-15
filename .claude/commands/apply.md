@@ -36,7 +36,8 @@ Each line of stdout is one applied `job_id` (empty output means nothing has been
 Filter the pipeline results to jobs that are **not yet applied** AND:
 - `tuner_status == "tuned"`
 - `resume_pdf` is not null and the path exists on disk
-- `company` is not in `settings.exclude_companies` (case-insensitive). These are the
+- `company` is not in `settings.exclude_companies` (case-insensitive), unless its
+  `job_id` begins with `direct:`. These are the
   direct career portals scraped by `/scrape-direct` (Google, Apple, Meta, Microsoft,
   Intuit); their forms sit behind an account login that this skill cannot clear, so
   attempting them only burns time. Their tuned resumes are still there for manual use.
@@ -47,6 +48,11 @@ not navigate or attempt the form. Record it immediately with status
 error `"Workday applications require manual intervention."`. These records are terminal for
 automation, so they will not re-enter future queues; the dashboard's job and resume links are
 available for the manual application.
+
+For each otherwise eligible job whose `job_id` begins with `direct:`, apply the same treatment:
+do not navigate or attempt the form. Record it immediately with status
+`"manual_intervention_needed"`, its normal job metadata, the effective `dry_run` value, and
+error `"Direct career portal applications require manual intervention."`.
 
 Print a summary of the queue (title, company, URL) before starting.
 If the queue is empty, say so and stop.

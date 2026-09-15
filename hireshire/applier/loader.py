@@ -18,9 +18,11 @@ def load_shortlisted(
     db: Optional[Database] = None,
     exclude_companies: Optional[list[str]] = None,
 ) -> list[tuple[MatchResult, Job]]:
-    """Load shortlisted (MatchResult, Job) pairs to apply to, skipping jobs that
-    were already applied or belong to an excluded company. Reads from the shared
-    database."""
+    """Load shortlisted pairs, retaining manual-action sources for recording.
+
+    Applied jobs and non-direct excluded companies are omitted. Workday/direct
+    jobs remain in the queue so the caller can persist their manual-action status.
+    """
     db = db or get_db()
     excluded = {c.strip().lower() for c in (exclude_companies or []) if c.strip()}
     if run_id is None:
@@ -45,12 +47,6 @@ def load_shortlisted(
         if store.is_applied(mr.job_id):
             logger.info("Skipping already-applied job %s (%s)", mr.job_id, mr.title)
             continue
-        if mr.board_token.lower() in excluded:
-            logger.info(
-                "Skipping %s (%s): %s requires an account login to apply",
-                mr.job_id, mr.title, mr.board_token,
-            )
-            continue
         matches.append(mr)
         ids_by_run[mr.source_run_id].append(mr.job_id)
 
@@ -63,6 +59,12 @@ def load_shortlisted(
         job = job_cache.get(mr.source_run_id, {}).get(mr.job_id)
         if not job:
             logger.warning("Skipping %s/%s: original job data not found", mr.board_token, mr.job_id)
+            continue
+        if mr.board_token.lower() in excluded and job.source.lower() != "direct":
+            logger.info(
+                "Skipping %s (%s): %s requires an account login to apply",
+                mr.job_id, mr.title, mr.board_token,
+            )
             continue
         results.append((mr, job))
 

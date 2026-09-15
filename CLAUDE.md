@@ -114,8 +114,9 @@ After assembly, [hireshire/tuner/store.py](hireshire/tuner/store.py) compiles wi
 - **`python applier.py`** — a standalone `browser-use` agent entrypoint ([hireshire/applier/filler.py](hireshire/applier/filler.py)) that reads the latest **matches** run directly and applies from there (`--run-id`, `--dry-run` flags). Runs without Claude Code.
 
 Both append records to the `applied` table (screenshots stay under `data/applied/screenshots/`).
-Eligible Workday jobs are recorded as `manual_intervention_needed` without opening a browser;
-their dashboard job and tailored-resume links remain available for manual application.
+Eligible Workday and direct-portal jobs are recorded as `manual_intervention_needed` without
+opening a browser; their dashboard job and tailored-resume links remain available for manual
+application.
 
 ### Key Models
 

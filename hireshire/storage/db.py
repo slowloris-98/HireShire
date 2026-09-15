@@ -536,6 +536,78 @@ class Database:
             ).fetchall()
         return [r["run_id"] for r in rows]
 
+    def unfinished_run_phases(self, run_id: str) -> list[str]:
+        """Return unfinished phase names for a run."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT phase FROM runs WHERE run_id=? AND finished_at IS NULL ORDER BY phase",
+                (run_id,),
+            ).fetchall()
+        return [r["phase"] for r in rows]
+
+    def cleanup_run_preview(self, run_id: str) -> dict[str, int]:
+        """Count rows a bounded run cleanup would remove without mutating data."""
+        with self._lock:
+            job_ids = [r["job_id"] for r in self._conn.execute(
+                "SELECT job_id FROM jobs WHERE run_id=?", (run_id,)
+            ).fetchall()]
+            counts = {
+                table: self._conn.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE run_id=?", (run_id,)
+                ).fetchone()[0]
+                for table in ("runs", "run_companies", "jobs", "matches", "pipeline_results", "tuned_jobs")
+            }
+            if job_ids:
+                def count_job_ids(table: str) -> int:
+                    total = 0
+                    for start in range(0, len(job_ids), 900):
+                        batch = job_ids[start:start + 900]
+                        placeholders = ",".join("?" for _ in batch)
+                        total += self._conn.execute(
+                            f"SELECT COUNT(*) FROM {table} WHERE job_id IN ({placeholders})", batch
+                        ).fetchone()[0]
+                    return total
+
+                counts["seen_jobs"] = count_job_ids("seen_jobs")
+                counts["applied"] = count_job_ids("applied")
+            else:
+                counts["seen_jobs"] = 0
+                counts["applied"] = 0
+        return counts
+
+    def cleanup_run(self, run_id: str, include_applied: bool = False) -> dict[str, int]:
+        """Delete one run's rows plus its cross-run dedupe state.
+
+        Application records are retained unless ``include_applied`` is explicitly
+        set. Returns the actual deletion count for each affected table.
+        """
+        tables = ("runs", "run_companies", "jobs", "matches", "pipeline_results", "tuned_jobs")
+        with self._lock, self._conn:
+            job_ids = [r["job_id"] for r in self._conn.execute(
+                "SELECT job_id FROM jobs WHERE run_id=?", (run_id,)
+            ).fetchall()]
+            counts: dict[str, int] = {}
+
+            def delete_job_ids(table: str) -> int:
+                deleted = 0
+                # SQLite accepts a limited number of bound parameters; run-sized
+                # batches keep cleanup safe even for tens of thousands of jobs.
+                for start in range(0, len(job_ids), 900):
+                    batch = job_ids[start:start + 900]
+                    placeholders = ",".join("?" for _ in batch)
+                    cur = self._conn.execute(
+                        f"DELETE FROM {table} WHERE job_id IN ({placeholders})", batch
+                    )
+                    deleted += cur.rowcount
+                return deleted
+
+            counts["seen_jobs"] = delete_job_ids("seen_jobs") if job_ids else 0
+            counts["applied"] = delete_job_ids("applied") if include_applied and job_ids else 0
+            for table in tables:
+                cur = self._conn.execute(f"DELETE FROM {table} WHERE run_id=?", (run_id,))
+                counts[table] = cur.rowcount
+        return counts
+
     def prune_runs(self, keep: int | None = None, before: str | None = None) -> list[str]:
         """Delete run-scoped rows for old runs. Returns the deleted run_ids.
 
